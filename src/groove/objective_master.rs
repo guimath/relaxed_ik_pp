@@ -28,21 +28,35 @@ impl ObjectiveMaster {
         let mut weight_priors: Vec<f64> = Vec::new();
         let num_chains = chain_lengths.len();
         let mut num_dofs = 0;
+        let new_grasp = true;
         for i in 0..num_chains {
-            objectives.push(Box::new(MatchEEPosiDoF::new(i, 0)));
-            weight_priors.push(50.0);
-            objectives.push(Box::new(MatchEEPosiDoF::new(i, 1)));
-            weight_priors.push(50.0);
-            objectives.push(Box::new(MatchEEPosiDoF::new(i, 2)));
-            weight_priors.push(50.0);
-            objectives.push(Box::new(MatchEERotaDoF::new(i, 0)));
-            weight_priors.push(10.0);
-            objectives.push(Box::new(MatchEERotaDoF::new(i, 1)));
-            weight_priors.push(10.0);
-            objectives.push(Box::new(MatchEERotaDoF::new(i, 2)));
-            weight_priors.push(10.0);
-            // objectives.push(Box::new(EnvCollision::new(i)));
-            // weight_priors.push(1.0);
+            if new_grasp{
+                println!("using new objectives");
+                objectives.push(Box::new(EEinRangeRad::new(i, 0.18)));
+                weight_priors.push(100.0);
+                objectives.push(Box::new(EEinRangeHeight::new(i, 0.)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(EEinObjOrient::new(i)));
+                weight_priors.push(15.0);
+                objectives.push(Box::new(EEisHor::new(i)));
+                weight_priors.push(5.0);
+            }
+            else {
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 0)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 1)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 2)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(MatchEERotaDoF::new(i, 0)));
+                weight_priors.push(10.0);
+                objectives.push(Box::new(MatchEERotaDoF::new(i, 1)));
+                weight_priors.push(10.0);
+                objectives.push(Box::new(MatchEERotaDoF::new(i, 2)));
+                weight_priors.push(10.0);
+                // objectives.push(Box::new(EnvCollision::new(i)));
+                // weight_priors.push(1.0);
+            }
             num_dofs += chain_lengths[i];
         }
 
@@ -53,12 +67,13 @@ impl ObjectiveMaster {
         objectives.push(Box::new(MinimizeVelocity));   weight_priors.push(0.7);
         objectives.push(Box::new(MinimizeAcceleration));    weight_priors.push(0.5);
         objectives.push(Box::new(MinimizeJerk));    weight_priors.push(0.3);
-        objectives.push(Box::new(MaximizeManipulability));    weight_priors.push(1.0);
+        objectives.push(Box::new(MaximizeManipulability));    weight_priors.push(4.0);
 
         for i in 0..num_chains {
             for j in 0..chain_lengths[i]-2 {
                 for k in j+2..chain_lengths[i] {
-                    objectives.push(Box::new(SelfCollision::new(0, j, k))); weight_priors.push(0.01 );
+                    objectives.push(Box::new(SelfCollision::new(0, j, k)));  
+                    weight_priors.push(0.01 );
                 }
             }
         }
@@ -194,7 +209,7 @@ impl ObjectiveMaster {
 
     fn __gradient_finite_diff(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>)  {
         let mut grad: Vec<f64> = vec![0. ; x.len()];
-        let mut f_0 = self.call(x, vars);
+        let f_0 = self.call(x, vars);
 
         for i in 0..x.len() {
             let mut x_h = x.to_vec();
@@ -208,7 +223,7 @@ impl ObjectiveMaster {
 
     fn __gradient_finite_diff_lite(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
         let mut grad: Vec<f64> = vec![0. ; x.len()];
-        let mut f_0 = self.call(x, vars);
+        let f_0 = self.call(x, vars);
 
         for i in 0..x.len() {
             let mut x_h = x.to_vec();
