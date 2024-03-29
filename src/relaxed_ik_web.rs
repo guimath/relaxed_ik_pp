@@ -1,14 +1,12 @@
 
 use crate::groove::vars::{RelaxedIKVars, VarsConstructorData};
-use crate::groove::groove::{OptimizationEngineOpen};
+use crate::groove::groove::OptimizationEngineOpen;
 use crate::groove::objective_master::ObjectiveMaster;
-use crate::utils_rust::transformations::{*};
 use wasm_bindgen::prelude::*;
 use js_sys::Array;
 extern crate serde_json;
-use web_sys;
 extern crate console_error_panic_hook;
-use nalgebra::{UnitQuaternion, Vector3, Vector6, Quaternion, Point3};
+use nalgebra::{UnitQuaternion, Vector3, Vector6, Quaternion};
 
 #[wasm_bindgen]
 pub struct RelaxedIK {
@@ -67,7 +65,7 @@ impl RelaxedIK {
         let pos_vec: Vec<f64> = serde_wasm_bindgen::from_value(pos_goal).unwrap();
         let quat_vec: Vec<f64> = serde_wasm_bindgen::from_value(quat_goal).unwrap();
 
-        let mut tole_vec = if tolerance.is_null() || tolerance.is_undefined() {
+        let tole_vec = if tolerance.is_null() || tolerance.is_undefined() {
             vec![0.0; self.vars.robot.num_chains * 6]
         } else {
             serde_wasm_bindgen::from_value(tolerance).unwrap()
@@ -99,7 +97,7 @@ impl RelaxedIK {
             self.vars.tolerances[i] = tolerances[i].clone();
         }
 
-        self.groove.optimize(&mut out_x, &self.vars, &self.om, 100);
+        self.groove.optimize(&mut out_x, &self.vars, &self.om, 100).unwrap();
         self.vars.update(out_x.clone());
 
         out_x.into_iter().map(JsValue::from).collect()
