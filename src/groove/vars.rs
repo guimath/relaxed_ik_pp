@@ -1,14 +1,12 @@
-use nalgebra::{UnitQuaternion, Vector3, Vector6, Quaternion, Point3};
+use nalgebra::{UnitQuaternion, Vector3, Vector6};
 use crate::spacetime::robot::Robot;
-use crate::utils_rust::file_utils::{*};
-use time::PreciseTime;
-use std::ops::Deref;
-use yaml_rust::{YamlLoader, Yaml};
+// use crate::utils_rust::file_utils::{*};
+use yaml_rust::YamlLoader;
 use std::fs::File;
 use std::io::prelude::*;
 
-use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
 pub struct VarsConstructorData {
@@ -34,16 +32,20 @@ pub struct RelaxedIKVars {
 }
 impl RelaxedIKVars {
     pub fn from_local_settings(path_to_setting: &str) -> Self {
-        let path_to_src = get_path_to_src();
+        // println!("{}", path_to_setting);
         let mut file = File::open(path_to_setting).unwrap();
         let mut contents = String::new();
-        let res = file.read_to_string(&mut contents).unwrap();
+        let _res = file.read_to_string(&mut contents).unwrap();
         let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
         let settings = &docs[0];
-
-        let path_to_urdf = path_to_src + "configs/urdfs/" + settings["urdf"].as_str().unwrap();
+        
+        // let path_to_src = get_path_to_src();
+        // let path_to_urdf = path_to_src + "configs/urdfs/" + settings["urdf"].as_str().unwrap();
+        let mut path_buf = PathBuf::from(path_to_setting);
+        path_buf.set_file_name("urdfs/".to_owned() + settings["urdf"].as_str().unwrap());
+        let path_to_urdf = path_buf.to_str().to_owned().unwrap();
         println!("RelaxedIK is using below URDF file: {}", path_to_urdf);
-        let chain = k::Chain::<f64>::from_urdf_file(path_to_urdf.clone()).unwrap();
+        let _chain = k::Chain::<f64>::from_urdf_file(path_to_urdf).unwrap();
 
         let base_links_arr = settings["base_links"].as_vec().unwrap();
         let ee_links_arr = settings["ee_links"].as_vec().unwrap();
@@ -64,7 +66,7 @@ impl RelaxedIKVars {
         let mut starting_config = Vec::new();
         if settings["starting_config"].is_badvalue() {
             println!("No starting config provided, using all zeros");
-            for i in 0..robot.num_dofs {
+            for _ in 0..robot.num_dofs {
                 starting_config.push(0.0);
             }
         } else {
@@ -95,7 +97,7 @@ impl RelaxedIKVars {
         let num_chains = configs.base_links.len();
 
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
-        for i in 0..num_chains {
+        for _ in 0..num_chains {
             tolerances.push(Vector6::new(0., 0., 0., 0., 0., 0.));
         }
 
