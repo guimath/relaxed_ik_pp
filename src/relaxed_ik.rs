@@ -1,9 +1,6 @@
 use crate::groove::vars::RelaxedIKVars;
-use crate::groove::groove::{OptimizationEngineOpen};
+use crate::groove::groove::OptimizationEngineOpen;
 use crate::groove::objective_master::ObjectiveMaster;
-use crate::utils_rust::file_utils::{*};
-use crate::utils_rust::transformations::{*};
-use nalgebra::{Vector3, UnitQuaternion, Quaternion};
 use std::os::raw::{c_double, c_int};
 
 #[repr(C)]
@@ -36,18 +33,14 @@ impl RelaxedIK {
 
     pub fn solve(&mut self) -> Vec<f64> {
         let mut out_x = self.vars.xopt.clone();
-
-
-        self.groove.optimize(&mut out_x, &self.vars, &self.om, 100);
+        let res = self.groove.optimize(&mut out_x, &self.vars, &self.om, 100);
+        let _frames = self.vars.robot.get_frames_immutable(&out_x);
         
-        let frames = self.vars.robot.get_frames_immutable(&out_x);
-
-        for i in 0..out_x.len() {
-            if (out_x[i].is_nan()) {
-                println!("No valid solution found! Returning previous solution: {:?}. End effector position goals: {:?}", self.vars.xopt, self.vars.goal_positions);
-                return self.vars.xopt.clone();
-            }
+        if res.is_err(){
+            println!("No valid solution found! Returning previous solution: {:?}. End effector position goals: {:?}", self.vars.xopt, self.vars.goal_positions);
+            return self.vars.xopt.clone();
         }
+
         self.vars.update(out_x.clone());  
         out_x
     }
