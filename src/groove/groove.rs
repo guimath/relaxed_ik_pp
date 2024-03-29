@@ -3,6 +3,7 @@ use crate::groove::vars::{RelaxedIKVars};
 use optimization_engine::{constraints::*, panoc::*, *};
 use crate::groove::objective_master::ObjectiveMaster;
 
+use crate::groove::groove::core::SolverStatus;
 pub struct OptimizationEngineOpen {
     dim: usize,
     cache: PANOCCache
@@ -13,7 +14,7 @@ impl OptimizationEngineOpen {
         OptimizationEngineOpen { dim, cache }
     }
 
-    pub fn optimize(&mut self, x: &mut [f64], v: &RelaxedIKVars, om: &ObjectiveMaster, max_iter: usize) {
+    pub fn optimize(&mut self, x: &mut [f64], v: &RelaxedIKVars, om: &ObjectiveMaster, max_iter: usize) -> Result<SolverStatus, SolverError>{
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
             let (my_obj, my_grad) = om.gradient(u, v);
             for i in 0..my_grad.len() {
@@ -37,7 +38,7 @@ impl OptimizationEngineOpen {
 
         // Invoke the solver
         let status = panoc.solve(x);
-
+        status
         // println!("Panoc status: {:#?}", status);
         // println!("Panoc solution: {:#?}", x);
     }
