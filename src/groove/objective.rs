@@ -1,13 +1,23 @@
 use crate::groove::{vars};
 use crate::utils_rust::transformations::{*};
 use nalgebra::geometry::{Translation3, UnitQuaternion, Quaternion};
+use nalgebra::{Vector3, Isometry3, Point3, Rotation3};
 use std::cmp;
+use std::f64::consts::PI;
 use crate::groove::vars::RelaxedIKVars;
-use nalgebra::{Vector3, Isometry3, Point3};
 use std::ops::Deref;
 use time::PreciseTime;
 use parry3d_f64::{shape, query};
 
+
+// gauss
+// t = goal
+// d = degree ?? (2)
+// c = std
+
+//polynomial
+// f = penalty
+// g = degree
 pub fn groove_loss(x_val: f64, t: f64, d: i32, c: f64, f: f64, g: i32) -> f64 {
     -( (-(x_val - t).powi(d)) / (2.0 * c.powi(2) ) ).exp() + f * (x_val - t).powi(g)
 }
@@ -43,7 +53,12 @@ pub fn swamp_groove_loss_derivative(x_val: f64, g:f64, l_bound: f64, u_bound: f6
 }
 
 pub trait ObjectiveTrait {
-    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64;
+    fn call(&self, 
+        x: &[f64],              //joint values 
+        v: &vars::RelaxedIKVars, // general config variables (like target etx)
+        frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)> // all frames poses
+        ) -> f64; // returns loss value
+
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(nalgebra::Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64;
     fn gradient(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> (f64, Vec<f64>) {
         let mut grad: Vec<f64> = Vec::new();
@@ -76,6 +91,106 @@ pub trait ObjectiveTrait {
     fn gradient_type(&self) -> usize {return 1}  // manual diff = 0, finite diff = 1
 }
 
+pub struct EEinRangeRad {
+    pub arm_idx: usize,
+    pub target_rad: f64,
+}
+impl EEinRangeRad {
+    pub fn new(arm_idx: usize, target_rad: f64) -> Self {Self{arm_idx, target_rad}}
+}
+impl ObjectiveTrait for EEinRangeRad {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64 {
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let ee_pos = frames[self.arm_idx].0[last_elem];
+        let   goal = v.goal_positions[self.arm_idx];
+        let r: f64 = ((goal.x - ee_pos.x).powi(2) +(goal.y - ee_pos.y).powi(2)).sqrt();// TODO add rot to work with cylinder not vertical
+        groove_loss(r, self.target_rad, 2, 0.02, 10.0, 2)
+    }
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(nalgebra::Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
+        let ee_pos = ee_poses[self.arm_idx].0;
+        let   goal = v.goal_positions[self.arm_idx];
+        let r: f64 = (goal.x - ee_pos.x).powi(2) +(goal.y - ee_pos.y).powi(2);// TODO add rot to work with cylinder not vertical
+        groove_loss(r, 0.1, 2, 0.1, 10.0, 2)
+    }
+}
+pub struct EEinRangeHeight {
+    pub arm_idx: usize,
+    pub len_obj: f64,
+}
+impl EEinRangeHeight {
+    pub fn new(arm_idx: usize, len_obj:f64) -> Self {Self{arm_idx, len_obj}}
+}
+impl ObjectiveTrait for EEinRangeHeight {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64 {
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let ee_pos = frames[self.arm_idx].0[last_elem];
+        let   goal = v.goal_positions[self.arm_idx];
+        let h: f64 = ee_pos.z - goal.z;// TODO add rot to work with cylinder not vertical
+        groove_loss(h, self.len_obj/2., 2, 0.05, 10.0, 2)
+    }
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(nalgebra::Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
+        let ee_pos = ee_poses[self.arm_idx].0;
+        let   goal = v.goal_positions[self.arm_idx];
+        let h: f64 = ee_pos.z - goal.z;// TODO add rot to work with cylinder not vertical
+        groove_loss(h, self.len_obj/2., 2, 0.1, 10.0, 2)
+    }
+}
+
+pub struct EEinObjOrient {
+    pub arm_idx: usize,
+}
+impl EEinObjOrient {
+    pub fn new(arm_idx: usize) -> Self {Self{arm_idx}}
+}
+impl ObjectiveTrait for EEinObjOrient {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64 {
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let ee_pos = frames[self.arm_idx].0[last_elem];
+        let goal_pos = v.goal_positions[self.arm_idx];// TODO remove z orient
+        let mut ab_vector = goal_pos - ee_pos;
+        ab_vector.z = 0.0;
+        
+        let orient = frames[0].1[last_elem].to_rotation_matrix();
+        let dir_vect = orient.matrix().column(2);
+        
+        let angle = dir_vect.angle(&ab_vector);
+        // println!("angle={:#?}", angle);
+        groove_loss(angle, 0., 2, 0.05, 10.0, 2)
+    }
+
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(nalgebra::Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
+        let   ee_pos = ee_poses[self.arm_idx].0;
+        let goal_pos = v.goal_positions[self.arm_idx];
+        let mut ab_vector = goal_pos - ee_pos;
+        ab_vector.z = 0.0;
+
+        let   orient = ee_poses[self.arm_idx].1.to_rotation_matrix(); //.euler_angles();
+        let dir_vect = orient.matrix().column(2);
+
+        let angle = dir_vect.angle(&ab_vector);
+        // println!("angle={:#?}", angle);
+        groove_loss(angle, 0., 2, 0.05, 10.0, 2)
+    }
+}
+
+pub struct EEisHor {
+    pub arm_idx: usize,
+}
+impl EEisHor {
+    pub fn new(arm_idx: usize) -> Self {Self{arm_idx}}
+}
+impl ObjectiveTrait for EEisHor {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<nalgebra::Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64 {
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let   euler = frames[0].1[last_elem].euler_angles();
+        groove_loss(euler.1, 0., 2, 0.1, 10.0, 2)//groove_loss(r, self.target_rad, 2, 0.1, 10.0, 2)
+    }
+
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(nalgebra::Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
+        let   euler = ee_poses[self.arm_idx].1.euler_angles();
+        groove_loss(euler.1, 0., 2, 0.1, 10.0, 2)//groove_loss(r, self.target_rad, 2, 0.1, 10.0, 2)
+    }
+}
 
 pub struct MatchEEPosiDoF {
     pub arm_idx: usize,
