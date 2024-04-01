@@ -34,7 +34,6 @@ impl Robot {
 
             let mut axis_types: Vec<String> = Vec::new();
             let mut joint_types: Vec<String> = Vec::new();
-            let disp_offset = nalgebra::Vector3::new(0.0, 0.0, 0.0);
             let mut displacements = Vec::new();
             let mut rot_offsets = Vec::new();
 

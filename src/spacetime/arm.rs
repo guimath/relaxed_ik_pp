@@ -1,5 +1,5 @@
 use nalgebra;
-use nalgebra::{Vector3, Vector6, UnitQuaternion, Unit, Matrix, DMatrix, DVector, ArrayStorage};
+use nalgebra::{Vector3, Vector6, UnitQuaternion, DMatrix};
 
 #[derive(Clone, Debug)]
 pub struct Arm {
@@ -51,7 +51,7 @@ impl Arm{
 
         let mut out_positions: Vec<nalgebra::Vector3<f64>> = Vec::new();
         let mut out_rot_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();
-        for i in 0..rot_offsets.len() {
+        for _ in 0..rot_offsets.len() {
             out_positions.push(nalgebra::Vector3::new(0.,0.,0.));
             out_rot_quats.push(nalgebra::UnitQuaternion::identity());
         }
@@ -214,7 +214,7 @@ impl Arm{
         let neg_y: nalgebra::Vector3<f64> = nalgebra::Vector3::new(0.0, -1.0, 0.0);
         let neg_z: nalgebra::Vector3<f64> = nalgebra::Vector3::new(0.0, 0.0, -1.0);
 
-        let mut disp: Vector3<f64> = Vector3::new(0.0, 0.0, 0.0);
+        // let mut disp: Vector3<f64> = Vector3::new(0.0, 0.0, 0.0);
         let mut p_axis: Vector3<f64> = Vector3::new(0.0, 0.0, 0.0);
         let mut joint_idx: usize = 0;
 
@@ -222,7 +222,7 @@ impl Arm{
 
         for i in 1..self.displacements.len() {
             if self.__is_revolute_or_continuous[i-1] {
-                disp = ee_position - joint_positions[i];
+                let disp = ee_position - joint_positions[i];
                 if self.__is_x[joint_idx] {
                     p_axis = joint_rot_quats[i] * pos_x
                 } else if self.__is_y[joint_idx] {

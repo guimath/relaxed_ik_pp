@@ -2,13 +2,10 @@ extern crate relaxed_ik_lib;
 use relaxed_ik_lib::relaxed_ik;
 use nalgebra::Vector3;
 
-use crate::relaxed_ik_lib::utils_rust::file_utils::{*};
-
 fn main() {
     // initialize relaxed ik
-    let path_to_src = get_path_to_src();
-    let default_path_to_setting = path_to_src +  "configs/settings.yaml";
-    let mut relaxed_ik = relaxed_ik::RelaxedIK::load_settings(default_path_to_setting.as_str());
+    let default_path_to_setting =   "configs/settings.yaml";
+    let mut relaxed_ik = relaxed_ik::RelaxedIK::load_settings(default_path_to_setting);
 
     for _ in 0..10{
         for j in 0..relaxed_ik.vars.robot.num_chains {

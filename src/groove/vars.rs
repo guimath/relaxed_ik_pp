@@ -1,6 +1,5 @@
 use nalgebra::{UnitQuaternion, Vector3, Vector6};
 use crate::spacetime::robot::Robot;
-// use crate::utils_rust::file_utils::{*};
 use yaml_rust::YamlLoader;
 use std::fs::File;
 use std::io::prelude::*;

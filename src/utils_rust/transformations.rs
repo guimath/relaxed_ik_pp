@@ -28,7 +28,7 @@ pub fn quaternion_disp(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> 
     quaternion_log( q.inverse()*q_prime )
 }
 
-pub fn quaternion_dispQ(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> UnitQuaternion<f64> {
+pub fn quaternion_disp_q(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> UnitQuaternion<f64> {
     q.inverse()*q_prime
 }
 
