@@ -55,9 +55,21 @@ impl RelaxedWrapper {
             }
         }
     }
+    
+    // pub fn get_ee_pos(&self) -> Vector3<f64>{
+    //     self.vars.init_ee_positions[0]
+    // }
+    pub fn get_ee_pos(&self) -> (Vec<f64>, Vec<f64>){
+        let pose = self.vars.robot.get_ee_pos_and_quat_immutable(&self.vars.xopt);
+        (pose[0].0.as_slice().to_vec(), pose[0].1.as_vector().as_slice().to_vec())
+    }
 
+    pub fn get_objectives_costs(&self) -> Vec<f64> {
+        self.om.get_costs(&self.vars.xopt, &self.vars)
+    }
+    
     pub fn reset(&mut self, x: Vec<f64>) {
-        self.vars.reset( x.clone());
+        self.vars.reset( x.clone());    
     }
 
     pub fn reset_origin(&mut self){

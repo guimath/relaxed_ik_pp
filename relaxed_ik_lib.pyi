@@ -28,6 +28,17 @@ class RelaxedWrapper:
         """
     
     def reset_origin(self) -> None : 
-        '''
-        Resets joint positions to origin 
+        ''' Resets joint positions to origin''' 
+
+    def get_ee_pos(self) -> tuple[List[float], List[float]]:
         ''' 
+        Gets the pos of the end effector
+        
+         Returns
+        ----------
+        EE coordinates (XYZ) in a list
+        EE quaternion (WIJK) in a list
+        '''
+
+    def get_objectives_costs(self) -> List[float]:
+        ''' Gets cost per objective'''
