@@ -31,15 +31,16 @@ impl ObjectiveMaster {
         let new_grasp = true;
         for i in 0..num_chains {
             if new_grasp{
-                println!("using new objectives");
-                objectives.push(Box::new(EEinRangeRad::new(i, 0.18)));
-                weight_priors.push(100.0);
-                objectives.push(Box::new(EEinRangeHeight::new(i, 0.)));
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 0)));
                 weight_priors.push(50.0);
-                objectives.push(Box::new(EEinObjOrient::new(i)));
-                weight_priors.push(15.0);
-                objectives.push(Box::new(EEisHor::new(i)));
-                weight_priors.push(5.0);
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 1)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(MatchEEPosiDoF::new(i, 2)));
+                weight_priors.push(50.0);
+                objectives.push(Box::new(EEHorizontal::new(i)));
+                weight_priors.push(40.0);
+                objectives.push(Box::new(GripperHorizontal::new(i)));
+                weight_priors.push(10.0);
             }
             else {
                 objectives.push(Box::new(MatchEEPosiDoF::new(i, 0)));
@@ -70,6 +71,10 @@ impl ObjectiveMaster {
         objectives.push(Box::new(MaximizeManipulability));    weight_priors.push(4.0);
 
         for i in 0..num_chains {
+            // for j in 0..chain_lengths[i] {
+            //     objectives.push(Box::new(TargetCollision::new(i, j)));  
+            //     weight_priors.push(0.01 );
+            // }
             for j in 0..chain_lengths[i]-2 {
                 for k in j+2..chain_lengths[i] {
                     objectives.push(Box::new(SelfCollision::new(0, j, k)));  
@@ -79,6 +84,15 @@ impl ObjectiveMaster {
         }
         
         Self{objectives, num_chains, weight_priors, lite: false, finite_diff_grad: false}
+    }
+
+    pub fn get_costs(&self, x:&[f64], vars: &RelaxedIKVars) -> Vec<f64> {
+        let frames = vars.robot.get_frames_immutable(x);
+        let mut out = vec![0.0_f64;self.objectives.len()];
+        for i in 0..self.objectives.len() {
+            out[i] = self.weight_priors[i] * self.objectives[i].call(x, vars, &frames);
+        }
+        out
     }
 
     pub fn call(&self, x: &[f64], vars: &RelaxedIKVars) -> f64 {
