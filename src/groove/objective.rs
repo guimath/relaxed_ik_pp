@@ -1,5 +1,5 @@
 use crate::groove::vars;
-use crate::utils_rust::transformations::{*};
+use crate::utils::transformations::{*};
 use nalgebra::geometry::{UnitQuaternion, Quaternion};
 use nalgebra::Vector3;
 use parry3d_f64::{shape, query};
@@ -100,7 +100,6 @@ impl ObjectiveTrait for EEHorizontal {
         let ee_pos = frames[self.arm_idx].0[last_elem].z;
         let prev_pos = frames[self.arm_idx].0[last_elem-1].z;
         let x_val: f64 = ee_pos - prev_pos;
-        // println!("{}", x_val);
         groove_loss(x_val, 0.0, 2, 0.05, 10.0, 2)
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
