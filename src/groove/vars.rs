@@ -1,12 +1,9 @@
 use nalgebra::{UnitQuaternion, Vector3, Vector6};
 use crate::spacetime::robot::Robot;
-use yaml_rust::YamlLoader;
-use std::fs::File;
-use std::io::prelude::*;
 
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
-
+use std::path::Path;
+use crate::utils::config_parser::Config;
 #[derive(Serialize, Deserialize)]
 pub struct VarsConstructorData {
     // pub urdf: String,
@@ -30,63 +27,37 @@ pub struct RelaxedIKVars {
     pub init_ee_quats: Vec<UnitQuaternion<f64>>
 }
 impl RelaxedIKVars {
-    pub fn from_local_settings(path_to_setting: &str) -> Self {
-        // println!("{}", path_to_setting);
-        let mut file = File::open(path_to_setting).unwrap();
-        let mut contents = String::new();
-        let _res = file.read_to_string(&mut contents).unwrap();
-        let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
-        let settings = &docs[0];
-        
-        // let path_to_src = get_path_to_src();
-        // let path_to_urdf = path_to_src + "configs/urdfs/" + settings["urdf"].as_str().unwrap();
-        let mut path_buf = PathBuf::from(path_to_setting);
-        path_buf.set_file_name("urdfs/".to_owned() + settings["urdf"].as_str().unwrap());
-        let path_to_urdf = path_buf.to_str().to_owned().unwrap();
-        println!("RelaxedIK is using below URDF file: {}", path_to_urdf);
-        let _chain = k::Chain::<f64>::from_urdf_file(path_to_urdf).unwrap();
+    pub fn from_local_settings<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
+        let config: Config = Config::from_settings_file(path_to_setting);
+        Self::from_config(config)
+    }
 
-        let base_links_arr = settings["base_links"].as_vec().unwrap();
-        let ee_links_arr = settings["ee_links"].as_vec().unwrap();
-        let num_chains = base_links_arr.len();
+    pub fn from_config(config: Config)->Self {
+        let _chain = k::Chain::<f64>::from_urdf_file(config.robot_urdf_path.clone()).unwrap();
+        let num_chains = config.base_links.len();
 
-        let mut base_links = Vec::new();
-        let mut ee_links = Vec::new();
+
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
-        for i in 0..num_chains {
-            base_links.push(base_links_arr[i].as_str().unwrap().to_string());
-            ee_links.push(ee_links_arr[i].as_str().unwrap().to_string());
+        for _ in 0..num_chains {
             tolerances.push(Vector6::new(0., 0., 0., 0., 0., 0.));
         }
 
-        let urdf = &std::fs::read_to_string(path_to_urdf).unwrap();
-        let robot = Robot::from_urdf(urdf, &base_links, &ee_links);
+        let urdf = &std::fs::read_to_string(config.robot_urdf_path).unwrap();
+        let robot = Robot::from_urdf(urdf, &config.base_links, &config.ee_links);
 
-        let mut starting_config = Vec::new();
-        if settings["starting_config"].is_badvalue() {
-            println!("No starting config provided, using all zeros");
-            for _ in 0..robot.num_dofs {
-                starting_config.push(0.0);
-            }
-        } else {
-            let starting_config_arr = settings["starting_config"].as_vec().unwrap();
-            for i in 0..starting_config_arr.len() {
-                starting_config.push(starting_config_arr[i].as_f64().unwrap());
-            }
-        }
+        
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
-        let pose = robot.get_ee_pos_and_quat_immutable(&starting_config);
+        let pose = robot.get_ee_pos_and_quat_immutable(&config.starting_config);
         assert!(pose.len() == num_chains);
-
         for i in 0..pose.len() {
             init_ee_positions.push(pose[i].0);
             init_ee_quats.push(pose[i].1);
         }
 
-        RelaxedIKVars{robot, init_state: starting_config.clone(), xopt: starting_config.clone(),
-            prev_state: starting_config.clone(), prev_state2: starting_config.clone(), prev_state3: starting_config.clone(),
+        RelaxedIKVars{robot, init_state: config.starting_config.clone(), xopt: config.starting_config.clone(),
+            prev_state: config.starting_config.clone(), prev_state2: config.starting_config.clone(), prev_state3: config.starting_config.clone(),
             goal_positions: init_ee_positions.clone(), goal_quats: init_ee_quats.clone(), tolerances, init_ee_positions, init_ee_quats}
     }
     
