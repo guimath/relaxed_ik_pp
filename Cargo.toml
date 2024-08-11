@@ -21,8 +21,13 @@ csv = "1.1.6"
 chrono = "0.4.19"
 serde = { version = "1.0.136", features = ["derive"] }
 dirs = "4.0.0"
-urdf-rs =  "0.6.7"
-k = "0.29"
+urdf-rs = "0.8"
+k = "0.31"
+ncollide3d = "0.33"
+# openrr planner
+openrr-planner = { git = "https://github.com/openrr/openrr.git" }
+log = "0.4"
+env_logger = "0.11"
 
 # Below are for webassembly
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
@@ -36,6 +41,10 @@ version = "0.3"
 features = [
   "console",
 ]
+
+[dev-dependencies]
+urdf-viz = "0.45"
+clap = { version = "4.5.13", features = ["derive"] }
 
 [profile.dev]
 opt-level = 3
