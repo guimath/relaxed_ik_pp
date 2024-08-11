@@ -1,30 +1,40 @@
 
+use std::path::PathBuf;
+
+use log::{info, warn};
 use pyo3::prelude::*;
-use crate::groove::vars::RelaxedIKVars;
+use crate::{groove::vars::RelaxedIKVars, utils::config_parser::Config};
 use crate::groove::objective_master::ObjectiveMaster;
 use crate::groove::groove::OptimizationEngineOpen;
+use crate::motion::planner::Planner;
 use nalgebra::{Quaternion, UnitQuaternion, Vector3, Vector6};
 
 #[pyclass]
 pub struct RelaxedWrapper {
+    pub config: Config,
     pub vars: RelaxedIKVars,
     pub om: ObjectiveMaster,
     pub groove: OptimizationEngineOpen,
     pub init_q : Vec<f64>,
+    pub planner: Planner,
 }
 
 #[pymethods]
 impl RelaxedWrapper {
     #[new]
     pub fn new(path_to_setting: &str) -> Self {
-        println!("RelaxedIK is using below setting file {}", path_to_setting);
+        info!("Using settings file {path_to_setting}");
+        
+        let config = Config::from_settings_file(PathBuf::from(path_to_setting)); 
+        info!("Parsing successful {:?}", config.clone());
+        let vars = RelaxedIKVars::from_config(config.clone());
 
-        let vars = RelaxedIKVars::from_local_settings(path_to_setting);
         let om = ObjectiveMaster::relaxed_ik(&vars.robot.chain_lengths);
 
         let groove = OptimizationEngineOpen::new(vars.robot.num_dofs.clone());
         let init_q = vars.init_state.clone();
-        Self{vars, om, groove, init_q}
+        let planner = Planner::from_config(config.clone());
+        Self{config, vars, om, groove, init_q, planner}
     }
 
     pub fn solve_position(&mut self, pos_goals:[f64; 3], quat_goals:[f64; 4], tolerance:[f64; 6]) -> (Vec<f64>, Option<f64>){
@@ -50,12 +60,28 @@ impl RelaxedWrapper {
                 (out_x, Some(status.cost_value()))
             },
             Err(_) => {
-                println!("No valid solution found! Returning previous solution: {:?}. End effector position goals: {:?}", self.vars.xopt, self.vars.goal_positions);
+                warn!("No valid solution found! Returning previous solution: {:?}. End effector position goals: {:?}", self.vars.xopt, self.vars.goal_positions);
                 (self.vars.xopt.clone(), None)
             }
         }
     }
     
+    pub fn grip(&mut self, pos_goals:[f64; 3]) -> Vec<Vec<f64>>{
+        let x_start = self.vars.xopt.clone();
+
+        let quat_goals: [f64; 4] = [0.707, 0.0, 0.707, 0.0];
+        let tolerances: [f64; 6] = [0.0f64; 6];
+        let last_joint_nb = self.vars.robot.arms[0].displacements.len()-1;
+        let prev_value = self.vars.robot.arms[0].displacements[last_joint_nb][2];
+        self.vars.robot.arms[0].displacements[last_joint_nb][2] = prev_value + 0.03;// TODO make param
+        let (x_goal, _cost) = self.solve_position(pos_goals, quat_goals, tolerances);
+        let mut q = self.planner.get_motion(x_start, x_goal.clone()).unwrap();
+        self.vars.robot.arms[0].displacements[last_joint_nb][2] = prev_value;
+        let (x_goal2, _cost) = self.solve_position(pos_goals, quat_goals, tolerances);
+        q.extend(self.planner.get_motion(x_goal, x_goal2).unwrap());
+        q 
+
+    } 
     // pub fn get_ee_pos(&self) -> Vector3<f64>{
     //     self.vars.init_ee_positions[0]
     // }
