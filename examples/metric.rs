@@ -53,7 +53,7 @@ fn main() {
     let mut rik = RelaxedWrapper::new(settings.to_str().unwrap());
     
     let t1 = time::Instant::now();
-    let mut res = nalgebra::DMatrix::<i32>::zeros(I_MAX,J_MAX);
+    let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
     for i in 0..I_MAX {
         for j in 0..J_MAX {
             print!(" \r{i:} {j:}  ");
@@ -63,19 +63,23 @@ fn main() {
             rik.planner.obstacles = compound;
             rik.reset_origin();
             let grip = rik.grip(target.clone());
-            res[(i,j)] = match grip {
+            matrix[j][i] = match grip {
                 
-                Ok((q, _res)) => q.len() as i32,
+                Ok((q, _res)) => HSLColor(
+                    (150 - 10* q.len()) as f64 / 360.0,
+                    0.7,
+                    0.45,
+                ).to_rgba(),
                 Err(e) => {
                     f.write_all(format!("{target:?} \t {e}\n").as_bytes()).unwrap();
                     match e {
-                        openrr_planner::Error::ParseError{..} => {-1 },// WHITE cost to high
-                        openrr_planner::Error::Other{error:_} => {-2 },// CYAN SolverError
+                        openrr_planner::Error::ParseError{..} => {WHITE.to_rgba() },// cost to high
+                        openrr_planner::Error::Other{error:_} => {CYAN.to_rgba() },// SolverError
                         openrr_planner::Error::Collision{point:p, collision_link_names:_} => {
-                            if format!("{p:?}") == "Start" {0} // BLACK UnfeasibleTrajectoryPoint is private :(
-                            else {-3} // MAGENTA
+                            if format!("{p:?}") == "Start" {BLACK.to_rgba()} // UnfeasibleTrajectoryPoint is private :(
+                            else {MAGENTA.to_rgba()} // goal collision
                         },
-                        _ => -3, // MAGENTA
+                        _ => RED.to_rgba(), // Path planning failed
 
                     }
                 },
@@ -114,54 +118,16 @@ fn main() {
         .label_style(("sans-serif", 20))
         .draw().unwrap();
     
-    let mut matrix = [[0; I_MAX]; J_MAX];
-
-    for i in 0..I_MAX {
-        for j in 0..J_MAX {
-            matrix[j][i] = res[(i,j)];
-        }
-    }
     chart.draw_series(
         matrix
             .iter()
             .zip(0..)
             .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
-            .map(|(x, y, v)| {
-                if *v == 0 {
-                    Rectangle::new(
-                        [(x, y), (x + 1, y + 1)],
-                        BLACK.filled()
-                    ) 
-                }
-                else if *v == -1 {
-                    Rectangle::new(
-                        [(x, y), (x + 1, y + 1)],
-                        WHITE.filled()
-                    ) 
-                }
-                else if *v == -2 {
-                    Rectangle::new(
-                        [(x, y), (x + 1, y + 1)],
-                        CYAN.filled()
-                    ) 
-                }
-                else if *v == -3 {
-                    Rectangle::new(
-                        [(x, y), (x + 1, y + 1)],
-                        MAGENTA.filled()
-                    ) 
-                }
-                else {
-                    Rectangle::new(
-                        [(x, y), (x + 1, y + 1)],
-                        HSLColor(
-                            (150 - 10* *v) as f64 / 360.0,
-                            0.7,
-                            0.45,
-                        )
-                        .filled(),
-                    )
-                }
+            .map(|(x, y, color)| {
+                Rectangle::new(
+                    [(x, y), (x + 1, y + 1)],
+                    color.filled()
+                ) 
             })
     ).unwrap();
     let _ = root.present();
@@ -169,6 +135,9 @@ fn main() {
 
 // Cyan: Solver error on inverse kinematics (IK failed NotFiniteComputation)
 // White: Ik solved but not satisfying (IK, cost higher then threshold)
-// Black: impossible move because collision with bottle at start or end (Collision error:) 
-// between  green and red: ) 
+// Black: Collision with bottle at start (Collision error: ... (Start)) 
+// Magenta: Collision with bottle at End (Collision error: ... (Goal)) 
+// Red: path planing failed ()
+// between  green and red: all good, the greener the more direct the path 
+
 // To remove specific errors from log regex : ^.*(threshold).*\n?
