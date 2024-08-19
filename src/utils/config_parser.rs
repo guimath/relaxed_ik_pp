@@ -15,6 +15,8 @@ pub struct Config
     pub ee_links : Vec<String>,
     pub starting_config: Vec<f64>,
     pub package: Option<String>,
+    pub approach_dist: f64,
+    pub cost_threshold : f64,
 }
 
 
@@ -78,6 +80,9 @@ impl Config
             Some(p) => Some(p.to_string()),
             None => None
         };
+        let approach_dist = settings["approach_dist"].as_f64().unwrap_or(0.03);
+        let cost_threshold = settings["cost_threshold"].as_f64().unwrap_or(-50.0);
+
         Self{
             robot_urdf_path, 
             obstacles_urdf_path,
@@ -85,7 +90,9 @@ impl Config
             base_links,
             ee_links,
             starting_config,
-            package
+            package,
+            approach_dist,
+            cost_threshold,
         }
     }
  
