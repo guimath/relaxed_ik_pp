@@ -65,11 +65,10 @@ fn main() {
             let grip = rik.grip(target.clone());
             matrix[j][i] = match grip {
                 
-                Ok((q, _res)) => HSLColor(
-                    (150 - 10* q.len()) as f64 / 360.0,
-                    0.7,
-                    0.45,
-                ).to_rgba(),
+                Ok((q, _res)) => {
+                    let h = (150 - (10* q.len()).clamp(0, 125)) as f64 /360.0;
+                    HSLColor(h, 0.7, 0.45).to_rgba()
+            },
                 Err(e) => {
                     f.write_all(format!("{target:?} \t {e}\n").as_bytes()).unwrap();
                     match e {
