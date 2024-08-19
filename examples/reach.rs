@@ -1,4 +1,3 @@
-
 use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
 use relaxed_ik_lib::utils::config_parser::Config;
 use std::path::PathBuf;
@@ -34,12 +33,8 @@ fn main() {
         }
         None => [0.6f64, -0.5, 0.3],
     };
-    let settings = match args.settings{
-        Some(s) => s,
-        None => PathBuf::from("../python/configs/ur5_grip.yaml")
-    };
+    let settings = args.settings.unwrap_or(PathBuf::from("../python/configs/ur5_grip.yaml"));
     let conf =     Config::from_settings_file(settings.clone());
-    // dbg!(conf.clone());
 
     // obstacle manipulation to change position
     let new_obst = conf.obstacles_urdf_path.unwrap().clone();
@@ -57,9 +52,11 @@ fn main() {
 
 
     let mut rik = RelaxedWrapper::new(settings.to_str().unwrap());
-    let q = rik.grip(target);
-    // dbg!("{:?}", q);
-    let grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q.clone(), 5.0, 0.1)
+    let q = match  rik.grip(target) {
+        Ok((x, _)) => x,
+        Err(e) => {println!("error {e:}"); vec![conf.starting_config.clone(), conf.starting_config.clone()]}, // To show env even if failed 
+    };
+    let grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q.clone(), 5.0, 0.01)
         .unwrap()
         .into_iter()
         .map(|point| point.position)
@@ -85,7 +82,6 @@ fn main() {
 
 
     /* OBSTACLES */
-
     let urdf_obstacles = rik.planner.obstacles_robot.clone();
     viewer.add_robot(
         &mut window,
@@ -107,7 +103,7 @@ fn main() {
             // plan_joints::<f64>(&using_joint_names, &start_angles, &plans[i], &obstacles)
             // .unwrap();
             i = (i+1)%tot;
-            std::thread::sleep(std::time::Duration::from_millis(30));
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
     }
     else {
