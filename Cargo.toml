@@ -44,6 +44,7 @@ features = [
 
 [dev-dependencies]
 urdf-viz = "0.45"
+plotters = "0.3"
 clap = { version = "4.5.13", features = ["derive"] }
 
 [profile.dev]
