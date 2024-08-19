@@ -17,3 +17,6 @@ wrappers/__pycache__/
 
 # python venv
 .venv/
+
+# output files 
+ex_out/
