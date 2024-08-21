@@ -38,7 +38,7 @@ fn main() {
     println!("Total tests planned {:} ({:}x{:}). Estimated time : {:.3?}",I_MAX*J_MAX, I_MAX, J_MAX, est_time);
     let settings = match args.settings{
         Some(s) => s,
-        None => PathBuf::from("../python/configs/ur5_grip.yaml")
+        None => PathBuf::from("configs/ur5_grip.yaml")
     };
     let conf =     Config::from_settings_file(settings.clone());
 
@@ -65,8 +65,8 @@ fn main() {
             let grip = rik.grip(target.clone());
             matrix[j][i] = match grip {
                 
-                Ok((q, _res)) => {
-                    let h = (150 - (10* q.len()).clamp(0, 125)) as f64 /360.0;
+                Ok((q1, q2, _res)) => {
+                    let h = (150 - (10* (q1.len()+q2.len()-1)).clamp(0, 125)) as f64 /360.0;
                     HSLColor(h, 0.7, 0.45).to_rgba()
             },
                 Err(e) => {
