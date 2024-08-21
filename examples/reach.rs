@@ -21,6 +21,9 @@ struct Cli {
     /// Shows interpolated movement
     #[arg(short, long, default_value_t = false)]
     full_move: bool,
+    /// Time of move interpolate
+    #[arg(short, long, default_value_t = 5.0)]
+    move_time: f64,
 }
 fn main() {
     env_logger::init();
@@ -33,7 +36,7 @@ fn main() {
         }
         None => [0.6f64, -0.5, 0.3],
     };
-    let settings = args.settings.unwrap_or(PathBuf::from("../python/configs/ur5_grip.yaml"));
+    let settings = args.settings.unwrap_or(PathBuf::from("configs/ur5_grip.yaml"));
     let conf =     Config::from_settings_file(settings.clone());
 
     // obstacle manipulation to change position
@@ -52,16 +55,26 @@ fn main() {
 
 
     let mut rik = RelaxedWrapper::new(settings.to_str().unwrap());
-    let q = match  rik.grip(target) {
-        Ok((x, _)) => x,
-        Err(e) => {println!("error {e:}"); vec![conf.starting_config.clone(), conf.starting_config.clone()]}, // To show env even if failed 
+    let (q1, q2) = match  rik.grip(target) {
+        Ok((x1, x2, _)) => (x1, x2),
+        Err(e) => {println!("error {e:}"); (vec![conf.starting_config.clone(), conf.starting_config.clone()], vec![conf.starting_config.clone(), conf.starting_config.clone()])}, // To show env even if failed 
     };
-    let grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q.clone(), 5.0, 0.01)
+    let mut q = q1.clone();
+    q.extend(q2.clone());
+
+    let mut grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q1.clone(), args.move_time, 0.01)
         .unwrap()
         .into_iter()
         .map(|point| point.position)
         .collect();
 
+    let grip_plan2: Vec<Vec<f64>> = openrr_planner::interpolate(&q2.clone(), 1.0, 0.01)
+        .unwrap()
+        .into_iter()
+        .map(|point| point.position)
+        .collect();
+
+    grip_plan.extend(grip_plan2);
     // VISUALIZATION 
     let (mut viewer, mut window) = Viewer::new("Example of grip");
     // let mut packages_path: HashMap<String, String> = HashMap::new();
