@@ -1,0 +1,17 @@
+urdf: ur5_grip.urdf
+obstacles: obstacles.urdf
+package: ur_description
+link_radius: 0.05 
+approach_dist: 0.03 
+base_links:
+  - base_link
+ee_links:
+  - gripper_center_link
+starting_config: [3.14, -1.57, -1.0, -3.14, -1.57, -1.57]
+used_links:
+  - shoulder_pan_joint
+  - shoulder_lift_joint
+  - elbow_joint
+  - wrist_1_joint
+  - wrist_2_joint
+  - wrist_3_joint
