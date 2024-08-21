@@ -90,14 +90,14 @@ impl RelaxedWrapper {
 /// pure rust
 impl RelaxedWrapper {
     /// Creates steps to get to given object position and grasp.
-    pub fn grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
+    pub fn grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
         let res = self._grip(pos_goals);
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length;// in case first ik unsuccessful 
         res
     }
 
     /// helper func so that if error arises, joint displacement is kept.
-    fn _grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
+    fn _grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
         let x_start = self.vars.xopt.clone();
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length + self.config.approach_dist;
         let _res1 = self.solve_ik(pos_goals)?;
@@ -107,10 +107,10 @@ impl RelaxedWrapper {
         let x_goal = self.vars.xopt.clone();
         
 
-        let mut q = self.planner.get_motion(x_start, x_inter.clone())?;
-        let  q2 = &self.planner.get_motion(x_inter, x_goal)?[1..]; // first already in q
-        q.extend(q2.to_vec());
-        Ok((q, res)) 
+        let q = self.planner.get_motion(x_start, x_inter.clone())?;
+        let q2 = self.planner.get_motion(x_inter, x_goal)?;//[1..]; // first already in q
+        // q.extend(q2.to_vec());
+        Ok((q, q2, res)) 
     } 
 
     /// Sets parameters for inverse kinematics (they will be used subsequently except if specified otherwise)
