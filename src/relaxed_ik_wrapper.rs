@@ -4,12 +4,12 @@ use std::path::PathBuf;
 use log::{info, warn};
 use optimization_engine::core::SolverStatus;
 use pyo3::prelude::*;
+// use pyo3::exceptions::PyOSError;
 use crate::{groove::vars::RelaxedIKVars, utils::config_parser::Config};
 use crate::groove::objective_master::ObjectiveMaster;
 use crate::groove::groove::OptimizationEngineOpen;
 use crate::motion::planner::Planner;
 use nalgebra::{Quaternion, UnitQuaternion, Vector3, Vector6};
-
 #[pyclass]
 pub struct RelaxedWrapper {
     pub config: Config,
@@ -21,6 +21,7 @@ pub struct RelaxedWrapper {
     last_joint_num : usize,
     gripper_length : f64,
 }
+
 
 #[pymethods]
 impl RelaxedWrapper {
@@ -63,7 +64,7 @@ impl RelaxedWrapper {
             }
         }
     }   
-    
+
     pub fn get_ee_pos(&self) -> (Vec<f64>, Vec<f64>){
         let pose = self.vars.robot.get_ee_pos_and_quat_immutable(&self.vars.xopt);
         (pose[0].0.as_slice().to_vec(), pose[0].1.as_vector().as_slice().to_vec())
@@ -73,6 +74,9 @@ impl RelaxedWrapper {
         self.om.get_costs(&self.vars.xopt, &self.vars)
     }
     
+    pub fn grip_unwrap(&mut self, pos_goals:[f64; 3]) -> Vec<Vec<f64>>{
+        self.grip(pos_goals).unwrap().0
+    }
     pub fn reset(&mut self, x: Vec<f64>) {
         self.vars.reset( x.clone());    
     }
@@ -85,12 +89,14 @@ impl RelaxedWrapper {
 
 /// pure rust
 impl RelaxedWrapper {
+    /// Creates steps to get to given object position and grasp.
     pub fn grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
         let res = self._grip(pos_goals);
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length;// in case first ik unsuccessful 
         res
     }
 
+    /// helper func so that if error arises, joint displacement is kept.
     fn _grip(&mut self, pos_goals:[f64; 3]) -> Result<(Vec<Vec<f64>>, SolverStatus), openrr_planner::Error>{
         let x_start = self.vars.xopt.clone();
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length + self.config.approach_dist;
@@ -107,6 +113,7 @@ impl RelaxedWrapper {
         Ok((q, res)) 
     } 
 
+    /// Sets parameters for inverse kinematics (they will be used subsequently except if specified otherwise)
     pub fn set_ik_params(&mut self, pos_goals:[f64; 3], quat_goals:[f64; 4], tolerance:[f64; 6]){
         for i in 0..self.vars.robot.num_chains  {//TODO use slices
             self.vars.goal_positions[i] = Vector3::new(pos_goals[3*i], pos_goals[3*i+1], pos_goals[3*i+2]);
@@ -116,6 +123,8 @@ impl RelaxedWrapper {
                 tolerance[6*i+3], tolerance[6*i+4], tolerance[6*i+5])
         }
     }
+
+    /// gets solution using relaxed ik, with threshold test
     pub fn solve_ik(&mut self, pos_goals:[f64; 3]) -> Result<SolverStatus, openrr_planner::Error> {
         for i in 0..self.vars.robot.num_chains  {
             self.vars.goal_positions[i] = Vector3::new(pos_goals[3*i], pos_goals[3*i+1], pos_goals[3*i+2]);

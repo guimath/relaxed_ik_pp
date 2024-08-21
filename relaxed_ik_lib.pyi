@@ -26,9 +26,6 @@ class RelaxedWrapper:
         ----------
         tuple (joints position at end of optimization, cost)
         """
-    
-    def reset_origin(self) -> None : 
-        ''' Resets joint positions to origin''' 
 
     def get_ee_pos(self) -> tuple[List[float], List[float]]:
         ''' 
@@ -42,3 +39,25 @@ class RelaxedWrapper:
 
     def get_objectives_costs(self) -> List[float]:
         ''' Gets cost per objective'''
+    
+    def grip_unwrap(self, pos_goals:List[float]) -> List[List[float]]:
+        """
+        Gets motion to grip object a given pos
+
+        Parameters
+        ----------
+        Assuming the robot has N end-effectors
+        pos_goals: (1D array with length as 3*N) list of end-effector positions
+
+        Returns
+        ----------
+        2D array of length N containing different steps of motion
+        """
+        
+    def reset(self, x=List[float]) -> None :
+        ''' Sets joints to given values'''
+    
+    def reset_origin(self) -> None : 
+        ''' Resets joint positions to origin''' 
+
+
