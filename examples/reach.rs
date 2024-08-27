@@ -18,6 +18,9 @@ struct Cli {
     /// Specify path to the settings file
     #[arg(short, long)]
     settings: Option<PathBuf>,
+    /// Only computes ik 
+    #[arg(short, long, default_value_t = false)]
+    ik_only: bool,
     /// Shows interpolated movement
     #[arg(short, long, default_value_t = false)]
     full_move: bool,
@@ -53,28 +56,8 @@ fn main() {
     let _ = file.write_all(s.as_bytes()).unwrap();
     let _ = file.flush().unwrap();
 
-
     let mut rik = RelaxedWrapper::new(settings.to_str().unwrap());
-    let (q1, q2) = match  rik.grip(target) {
-        Ok((x1, x2, _)) => (x1, x2),
-        Err(e) => {println!("error {e:}"); (vec![conf.starting_config.clone(), conf.starting_config.clone()], vec![conf.starting_config.clone(), conf.starting_config.clone()])}, // To show env even if failed 
-    };
-    let mut q = q1.clone();
-    q.extend(q2.clone());
-
-    let mut grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q1.clone(), args.move_time, 0.01)
-        .unwrap()
-        .into_iter()
-        .map(|point| point.position)
-        .collect();
-
-    let grip_plan2: Vec<Vec<f64>> = openrr_planner::interpolate(&q2.clone(), 1.0, 0.01)
-        .unwrap()
-        .into_iter()
-        .map(|point| point.position)
-        .collect();
-
-    grip_plan.extend(grip_plan2);
+    
     // VISUALIZATION 
     let (mut viewer, mut window) = Viewer::new("Example of grip");
     // let mut packages_path: HashMap<String, String> = HashMap::new();
@@ -92,7 +75,7 @@ fn main() {
     let robot_viz  = &robot;
     robot_viz.update_transforms();
     viewer.update(robot_viz);
-
+    viewer.add_axis_cylinders(&mut window, "test", 0.2);
 
     /* OBSTACLES */
     let urdf_obstacles = rik.planner.obstacles_robot.clone();
@@ -100,36 +83,57 @@ fn main() {
         &mut window,
         &urdf_obstacles,
         &Default::default(),
-    );    // viewer.add_robot(&mut window, &urdf_obstacles, &Default::default());
+    );
     // resetting file
     let mut file = File::create(new_obst.clone()).unwrap();
     let _ = file.write_all(&old_file).unwrap();
     let _ = file.flush();
 
-    let mut i = 0;
+    // IK only
+    if args.ik_only {
+        let res = rik.solve_ik(target);
+        println!(" {res:?}");
+        println!(" {:?}", rik.get_ee_pos());
+        let q = rik.vars.xopt.clone();
+        robot.set_joint_positions_clamped(&q);
+        
+        while window.render_with_camera(&mut viewer.arc_ball) {
+            viewer.update(robot_viz);
+        }
+        return;
+    }
+
+    // GETTING MOTION
+    let (q1, q2) = match  rik.grip(target) {
+        Ok((x1, x2, _)) => (x1, x2),
+        Err(e) => {println!("error {e:}"); (vec![conf.starting_config.clone(), conf.starting_config.clone()], vec![conf.starting_config.clone(), conf.starting_config.clone()])}, // To show env even if failed 
+    };
+    let mut q = q1.clone(); q.extend(q2.clone());
+    let mut extra_wait = 100usize;
+
     if args.full_move {
-        let tot = grip_plan.len();
-        while window.render_with_camera(&mut viewer.arc_ball) {
-            robot.set_joint_positions_clamped(&grip_plan[i]);
-            viewer.update(robot_viz);
-            // let plan = planner.
-            // plan_joints::<f64>(&using_joint_names, &start_angles, &plans[i], &obstacles)
-            // .unwrap();
-            i = (i+1)%tot;
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-    }
-    else {
-        let tot = q.len();
-        let mut j = 0usize;
-        while window.render_with_camera(&mut viewer.arc_ball) {
-            robot.set_joint_positions_clamped(&q[i]);
-            viewer.update(robot_viz);
-            j = (j+1)%100;
-            if j == 0 {i = (i+1)%tot;}
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-
+        let mut grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q1.clone(), args.move_time, 0.01)
+            .unwrap()
+            .into_iter()
+            .map(|point| point.position)
+            .collect();
+        let grip_plan2: Vec<Vec<f64>> = openrr_planner::interpolate(&q2.clone(), 1.0, 0.01)
+            .unwrap()
+            .into_iter()
+            .map(|point| point.position)
+            .collect();
+        grip_plan.extend(grip_plan2);
+        q = grip_plan.clone();
+        extra_wait = 1; 
     }
 
+    let tot = q.len();
+    let (mut i, mut j) = (0usize, 0usize);
+    while window.render_with_camera(&mut viewer.arc_ball) {
+        robot.set_joint_positions_clamped(&q[i]);
+        viewer.update(robot_viz);
+        j = (j+1)%extra_wait;
+        if j == 0 {i = (i+1)%tot;}
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 }
