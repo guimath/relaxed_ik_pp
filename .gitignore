@@ -20,3 +20,7 @@ wrappers/__pycache__/
 
 # output files 
 ex_out/
+examples/cost_configs/*
+!examples/cost_configs/groove.yaml
+!examples/cost_configs/swamp.yaml
+!examples/cost_configs/swamp_groove.yaml
