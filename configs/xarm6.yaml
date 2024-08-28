@@ -1,0 +1,16 @@
+urdf: xarm6_robot.urdf
+obstacles: obstacles.urdf
+package: xarm_description
+approach_dist: 0.03 
+base_links:
+  - link_base
+ee_links:
+  - gripper_center_link
+starting_config: [0.0, 0.0, -0.5, 0.0, 0.0, 1.57]
+used_links:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
