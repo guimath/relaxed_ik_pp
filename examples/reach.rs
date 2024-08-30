@@ -4,8 +4,10 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
+use std::time;
 
 use urdf_viz::Viewer;
+use urdf_viz::{Action, Key, WindowEvent};
 
 use clap::Parser;
 
@@ -21,6 +23,9 @@ struct Cli {
     /// Only computes ik 
     #[arg(short, long, default_value_t = false)]
     ik_only: bool,
+    /// Just show the robot 
+    #[arg(short, long, default_value_t = false)]
+    vis_only: bool,
     /// Shows interpolated movement
     #[arg(short, long, default_value_t = false)]
     full_move: bool,
@@ -89,11 +94,22 @@ fn main() {
     let _ = file.write_all(&old_file).unwrap();
     let _ = file.flush();
 
+    if args.vis_only {
+        let q = rik.vars.xopt.clone();
+        robot.set_joint_positions_clamped(&q);
+        while window.render_with_camera(&mut viewer.arc_ball) {
+            viewer.update(robot_viz);
+        }
+        return;
+
+    }
     // IK only
     if args.ik_only {
-        let res = rik.solve_ik(target);
+        rik.vars.robot.arms[0].displacements[rik.last_joint_num][2] = rik.gripper_length + rik.config.approach_dist;
+        let res = rik.solve_ik(target);//x: -0.0012 y: -0.1129 z:0.0596
         println!(" {res:?}");
-        println!(" {:?}", rik.get_ee_pos());
+        let (pos, _quat) = rik.get_ee_pos();
+        println!("x: {:.4} y: {:.4} z:{:.4}", target[0] - pos[0], target[1] - pos[1], target[2] - pos[2]);
         let q = rik.vars.xopt.clone();
         robot.set_joint_positions_clamped(&q);
         
@@ -102,12 +118,16 @@ fn main() {
         }
         return;
     }
-
     // GETTING MOTION
+    let t1 = time::Instant::now();
     let (q1, q2) = match  rik.grip(target) {
         Ok((x1, x2, _)) => (x1, x2),
         Err(e) => {println!("error {e:}"); (vec![conf.starting_config.clone(), conf.starting_config.clone()], vec![conf.starting_config.clone(), conf.starting_config.clone()])}, // To show env even if failed 
     };
+
+    let elapsed = time::Instant::now() - t1;
+    println!("Time elapsed = {elapsed:.3?}");
+
     let mut q = q1.clone(); q.extend(q2.clone());
     let mut extra_wait = 100usize;
 
@@ -127,13 +147,26 @@ fn main() {
         extra_wait = 1; 
     }
 
+
+    let mut incr = 1;
     let tot = q.len();
     let (mut i, mut j) = (0usize, 0usize);
     while window.render_with_camera(&mut viewer.arc_ball) {
         robot.set_joint_positions_clamped(&q[i]);
         viewer.update(robot_viz);
-        j = (j+1)%extra_wait;
-        if j == 0 {i = (i+1)%tot;}
+        j = (j+incr)%extra_wait;
+        if j == 0 {i = (i+incr)%tot;}
         std::thread::sleep(std::time::Duration::from_millis(10));
+        for event in window.events().iter() {
+            if let WindowEvent::Key(code, Action::Press, _mods) = event.value {
+                match code {
+                    Key::S => {
+                        incr = (incr + 1)%2;
+                        println!("Current pos : {:?}",q[i]);
+                    }
+                    _ => (),
+                }
+            }
+        }                            
     }
 }
