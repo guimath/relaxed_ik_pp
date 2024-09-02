@@ -84,8 +84,8 @@ fn main() {
     let mut shapes = obstacle.shapes().to_vec();//[0].0.translation = [START_X, START_Y, START_Z];
     
     // out file names 
-    let mut log_file = PathBuf::from(format!("ex_out/{file_name}.log"));
-    let mut pic_file = PathBuf::from(format!("ex_out/{file_name}.png"));
+    let log_file = PathBuf::from(format!("ex_out/{file_name}.log"));
+    let pic_file = PathBuf::from(format!("ex_out/{file_name}.png"));
     let _ = fs::create_dir_all(pic_file.clone());
     let mut f = File::create(log_file).unwrap();
     
