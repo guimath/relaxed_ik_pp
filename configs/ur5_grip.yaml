@@ -2,7 +2,7 @@ urdf: ur5_grip.urdf
 obstacles: obstacles.urdf
 package: ur_description
 link_radius: 0.05 
-approach_dist: 0.03 
+approach_dist: 0.04 
 base_links:
   - base_link
 ee_links:
@@ -15,3 +15,4 @@ used_links:
   - wrist_1_joint
   - wrist_2_joint
   - wrist_3_joint
+cost_threshold: -50.0
