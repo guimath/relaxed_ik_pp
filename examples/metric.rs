@@ -48,8 +48,8 @@ fn main() {
     const TARGET_Y : f64 = -1.3;
     const TARGET_Z : f64 = 0.3;
 
-    const STEP_X : f64= 0.03;
-    const STEP_Y : f64= 0.03;
+    const STEP_X : f64= 0.01;
+    const STEP_Y : f64= 0.01;
     const MAX_X  : f64= 1.3;
     const MAX_Y  : f64= 1.3;
 
@@ -71,6 +71,7 @@ fn main() {
     let obstacle = Compound::from_urdf_robot(&obstacle_urdf);
     let mut shapes = obstacle.shapes().to_vec();//[0].0.translation = [TARGET_X, TARGET_Y, TARGET_Z];
     
+    // out file names 
     let file_name = if args.ik_only {"metric_scan_ik"} else {"metric_scan_motion"};
     let folder = "ex_out/t";
     let mut log_file = PathBuf::from(folder);
@@ -81,13 +82,41 @@ fn main() {
     pic_file.set_extension("png");
     let _ = fs::create_dir_all(folder);
     let mut f = File::create(log_file).unwrap();
+    
+    // rik init
     let mut rik = RelaxedWrapper::new(settings.to_str().unwrap());
+    
+    // Graph init
+    let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
+    let root = BitMapBackend::new(pic_file.as_os_str(), (1024, 1024)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let mut chart = ChartBuilder::on(&root)
+    .caption(format!("Z = {TARGET_Z:}"), ("sans-serif", 40))
+        .margin(5)
+        .top_x_label_area_size(40)
+        .y_label_area_size(60)
+        .build_cartesian_2d(0i32..(I_MAX as i32), (J_MAX as i32)..0i32).unwrap();
+    
+    chart
+        .configure_mesh()
+        .x_desc("x")
+        .y_desc("y")
+        .x_labels(10)
+        .y_labels(10)
+        .max_light_lines(4)
+        .x_label_formatter(&|r| format!("{:.2}", TARGET_X + STEP_X * (*r as f64)))
+        .y_label_formatter(&|r| format!("{:.2}", TARGET_Y + STEP_Y * (*r as f64)))
+        .x_label_offset(35)
+        .y_label_offset(25)
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .label_style(("sans-serif", 20))
+        .draw().unwrap();
+
     
     let m = MultiProgress::new();
     let pb = m.add(ProgressBar::new(I_MAX as u64));
     let pb2 = m.add(ProgressBar::new(J_MAX as u64));
-
-    let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
     let t1 = time::Instant::now();
     
     if args.ik_only {
@@ -132,9 +161,24 @@ fn main() {
                         err_to_color(e)
                     },
                 };
-                pb2.set_position(j as u64)
+                pb2.set_position(j as u64);
             }
-            pb.set_position(i as u64)
+            pb.set_position(i as u64);
+            if i%5 == 0 { // real time plotting 
+                chart.draw_series(
+                    matrix
+                        .iter()
+                        .zip(0..)
+                        .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
+                        .map(|(x, y, color)| {
+                            Rectangle::new(
+                                [(x, y), (x + 1, y + 1)],
+                                color.filled()
+                            ) 
+                        })
+                ).unwrap();
+                let _ = root.present();
+            }
         }
     }
     let elapsed = time::Instant::now() - t1;
@@ -142,32 +186,7 @@ fn main() {
     let _ = m.clear();
     println!("\rTotal time elapsed = {elapsed:.3?}");
     /* GRAPH */
-    let root = BitMapBackend::new(pic_file.as_os_str(), (1024, 1024)).into_drawing_area();
-
-    root.fill(&WHITE).unwrap();
-
-    let mut chart = ChartBuilder::on(&root)
-        .caption(format!("Z = {TARGET_Z:}"), ("sans-serif", 40))
-        .margin(5)
-        .top_x_label_area_size(40)
-        .y_label_area_size(60)
-        .build_cartesian_2d(0i32..(I_MAX as i32), (J_MAX as i32)..0i32).unwrap();
     
-    chart
-        .configure_mesh()
-        .x_desc("x")
-        .y_desc("y")
-        .x_labels(10)
-        .y_labels(10)
-        .max_light_lines(4)
-        .x_label_formatter(&|r| format!("{:.2}", TARGET_X + STEP_X * (*r as f64)))
-        .y_label_formatter(&|r| format!("{:.2}", TARGET_Y + STEP_Y * (*r as f64)))
-        .x_label_offset(35)
-        .y_label_offset(25)
-        .disable_x_mesh()
-        .disable_y_mesh()
-        .label_style(("sans-serif", 20))
-        .draw().unwrap();
     
     chart.draw_series(
         matrix
