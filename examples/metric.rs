@@ -1,8 +1,6 @@
 
-use openrr_planner::FromUrdf;
 use ncollide3d::shape::Compound;
 use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
-use relaxed_ik_lib::utils::config_parser::Config;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fs, time};
@@ -75,14 +73,6 @@ fn main() {
     let est_time = Duration::from_millis(((I_MAX * J_MAX) as f64 * avg_time_one_calc) as u64); 
     println!("Total tests planned {:} ({:}x{:}). Estimated time : {:.3?}",I_MAX*J_MAX, I_MAX, J_MAX, est_time);
 
-    let conf =     Config::from_settings_file(args.settings.clone());
-
-    // obstacle manipulation to change position
-    let new_obst = conf.obstacles_urdf_path.unwrap().clone();
-    let obstacle_urdf = urdf_rs::read_file(new_obst.clone()).unwrap();
-    let obstacle = Compound::from_urdf_robot(&obstacle_urdf);
-    let mut shapes = obstacle.shapes().to_vec();//[0].0.translation = [START_X, START_Y, START_Z];
-    
     // out file names 
     let log_file = PathBuf::from(format!("ex_out/{file_name}.log"));
     let pic_file = PathBuf::from(format!("ex_out/{file_name}.png"));
@@ -91,6 +81,7 @@ fn main() {
     
     // rik init
     let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
+    let mut shapes = rik.planner.obstacles.shapes().to_vec();//[0].0.translation = [START_X, START_Y, START_Z];
     
     // Graph init
     let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
