@@ -74,9 +74,11 @@ fn main() {
     println!("Total tests planned {:} ({:}x{:}). Estimated time : {:.3?}",I_MAX*J_MAX, I_MAX, J_MAX, est_time);
 
     // out file names 
-    let log_file = PathBuf::from(format!("ex_out/{file_name}.log"));
-    let pic_file = PathBuf::from(format!("ex_out/{file_name}.png"));
-    let _ = fs::create_dir_all(pic_file.clone());
+    let folder = args.settings.file_stem().unwrap().to_str().unwrap();
+    let log_file = PathBuf::from(format!("ex_out/{folder}/{file_name}.log"));
+    let pic_file = PathBuf::from(format!("ex_out/{folder}/{file_name}.png"));
+    
+    let _ = fs::create_dir_all(pic_file.parent().unwrap());
     let mut f = File::create(log_file).unwrap();
     
     // rik init
