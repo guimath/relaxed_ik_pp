@@ -1,39 +1,33 @@
-
-use yaml_rust::{YamlLoader, Yaml};
+use log::warn;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use log::warn;
+use yaml_rust::{Yaml, YamlLoader};
 #[derive(Clone, Debug)]
-pub struct Config
-{
-    pub robot_urdf_path : PathBuf,
-    pub obstacles_urdf_path : Option<PathBuf>,
-    pub used_links : Vec<String>,
-    pub base_links : Vec<String>,
-    pub ee_links : Vec<String>,
+pub struct Config {
+    pub robot_urdf_path: PathBuf,
+    pub obstacles_urdf_path: Option<PathBuf>,
+    pub used_links: Vec<String>,
+    pub base_links: Vec<String>,
+    pub ee_links: Vec<String>,
     pub starting_config: Vec<f64>,
     pub package: Option<String>,
     pub approach_dist: f64,
-    pub cost_threshold : f64,
+    pub cost_threshold: f64,
 }
-
 
 fn yaml_to_vec(yaml_vec: Yaml, err_msg: &str) -> Vec<String> {
-
-    yaml_vec.as_vec()
+    yaml_vec
+        .as_vec()
         .unwrap()
         .iter()
-        .map(|yaml| yaml.as_str().expect(err_msg).to_string()) 
-        .collect() 
+        .map(|yaml| yaml.as_str().expect(err_msg).to_string())
+        .collect()
 }
 
-
-impl Config 
-{
-    pub fn from_settings_file<P: AsRef<Path> + Clone > (path_to_setting: P) -> Self{
-
+impl Config {
+    pub fn from_settings_file<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
         let mut file = File::open(path_to_setting.clone()).unwrap();
         let mut contents = String::new();
         let _res = file.read_to_string(&mut contents).unwrap();
@@ -41,7 +35,7 @@ impl Config
         let settings = &docs[0];
         let mut robot_urdf_path = PathBuf::from(path_to_setting.as_ref());
         robot_urdf_path.set_file_name("urdfs".to_owned());
-        
+
         let obstacles_urdf_path = match settings["obstacles"].as_str() {
             Some(file_name) => {
                 let mut path = robot_urdf_path.clone();
@@ -70,21 +64,24 @@ impl Config
                 starting_config.push(starting_config_arr[i].as_f64().unwrap());
             }
             if arr_len < dof {
-                warn!("Starting config not same size as dof ({:?} vs {:?}), padding with zeros", arr_len, dof);
+                warn!(
+                    "Starting config not same size as dof ({:?} vs {:?}), padding with zeros",
+                    arr_len, dof
+                );
                 for _ in arr_len..dof {
                     starting_config.push(0.0);
                 }
             }
         }
-        let package = match settings["base_links"].as_str(){
+        let package = match settings["base_links"].as_str() {
             Some(p) => Some(p.to_string()),
-            None => None
+            None => None,
         };
         let approach_dist = settings["approach_dist"].as_f64().unwrap_or(0.03);
         let cost_threshold = settings["cost_threshold"].as_f64().unwrap_or(-50.0);
 
-        Self{
-            robot_urdf_path, 
+        Self {
+            robot_urdf_path,
             obstacles_urdf_path,
             used_links,
             base_links,
@@ -95,5 +92,4 @@ impl Config
             cost_threshold,
         }
     }
- 
 }

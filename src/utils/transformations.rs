@@ -1,4 +1,4 @@
-use nalgebra::{Vector3, UnitQuaternion, Quaternion, Vector4};
+use nalgebra::{Quaternion, UnitQuaternion, Vector3, Vector4};
 
 pub fn quaternion_log(q: UnitQuaternion<f64>) -> Vector3<f64> {
     let mut out_vec: Vector3<f64> = Vector3::new(q.i, q.j, q.k);
@@ -18,18 +18,21 @@ pub fn quaternion_exp(v: Vector3<f64>) -> UnitQuaternion<f64> {
     let a = qv.norm();
     let sina = a.sin();
     if sina.abs() >= 0.005 {
-        let c = sina/a;
+        let c = sina / a;
         qv *= c;
     }
     UnitQuaternion::from_quaternion(Quaternion::new(a.cos(), qv[1], qv[2], qv[3]))
 }
 
 pub fn quaternion_disp(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> Vector3<f64> {
-    quaternion_log( q.inverse()*q_prime )
+    quaternion_log(q.inverse() * q_prime)
 }
 
-pub fn quaternion_disp_q(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> UnitQuaternion<f64> {
-    q.inverse()*q_prime
+pub fn quaternion_disp_q(
+    q: UnitQuaternion<f64>,
+    q_prime: UnitQuaternion<f64>,
+) -> UnitQuaternion<f64> {
+    q.inverse() * q_prime
 }
 
 pub fn angle_between_quaternion(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<f64>) -> f64 {
@@ -39,6 +42,5 @@ pub fn angle_between_quaternion(q: UnitQuaternion<f64>, q_prime: UnitQuaternion<
 pub fn quaternion_from_angleaxis(angle: f64, axis: Vector3<f64>) -> UnitQuaternion<f64> {
     let a = angle * 2.0;
     let axis_len = axis.norm();
-    quaternion_exp( axis * (a / axis_len))
+    quaternion_exp(axis * (a / axis_len))
 }
-
