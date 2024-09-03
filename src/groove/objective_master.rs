@@ -81,16 +81,12 @@ impl ObjectiveMaster {
         objectives.push(Box::new(MaximizeManipulability));
         weight_priors.push(4.0);
 
-        for i in 0..num_chains {
-            // for j in 0..chain_lengths[i] {
-            //     objectives.push(Box::new(TargetCollision::new(i, j)));
-            //     weight_priors.push(0.01 );
-            // }
-            if chain_lengths[i] < 2 {
+        for &chain_length in chain_lengths {
+            if chain_length < 2 {
                 continue;
             }
-            for j in 0..chain_lengths[i] - 2 {
-                for k in j + 2..chain_lengths[i] {
+            for j in 0..chain_length - 2 {
+                for k in j + 2..chain_length {
                     objectives.push(Box::new(SelfCollision::new(0, j, k)));
                     weight_priors.push(0.01);
                 }

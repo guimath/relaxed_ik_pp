@@ -47,10 +47,7 @@ impl Arm {
         //     displacements.push(disp_offsets[i]);
         // }
 
-        let mut rot_offset_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();
-        for i in 0..rot_offsets.len() {
-            rot_offset_quats.push(rot_offsets[i]);
-        }
+        let rot_offset_quats: Vec<nalgebra::UnitQuaternion<f64>> = rot_offsets.clone();
 
         let mut out_positions: Vec<nalgebra::Vector3<f64>> = Vec::new();
         let mut out_rot_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();

@@ -65,9 +65,7 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_h[i] = x[i];
-        }
+        self.__x_h = x[..self.dim].to_vec();
     }
 }
 
@@ -134,10 +132,8 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_hf[i] = x[i];
-            self.__x_hb[i] = x[i];
-        }
+        self.__x_hf = x[..self.dim].to_vec();
+        self.__x_hb = self.__x_hf.clone();
     }
 }
 
@@ -227,12 +223,10 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_hf1[i] = x[i];
-            self.__x_hb1[i] = x[i];
-            self.__x_hf2[i] = x[i];
-            self.__x_hb2[i] = x[i];
-        }
+        self.__x_hf1 = x[..self.dim].to_vec();
+        self.__x_hb1 = self.__x_hf1.clone();
+        self.__x_hf2 = self.__x_hf1.clone();
+        self.__x_hb2 = self.__x_hf1.clone();
     }
 }
 
@@ -292,9 +286,7 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_h[i] = x[i];
-        }
+        self.__x_h = x[..self.dim].to_vec();
     }
 }
 
@@ -349,10 +341,8 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_hf[i] = x[i];
-            self.__x_hb[i] = x[i];
-        }
+        self.__x_hf = x[..self.dim].to_vec();
+        self.__x_hb = self.__x_hf.clone();
     }
 }
 
@@ -419,12 +409,11 @@ where
     }
 
     fn reset(&mut self, x: &[f64]) {
-        for i in 0..self.dim {
-            self.__x_hf1[i] = x[i];
-            self.__x_hb1[i] = x[i];
-            self.__x_hf2[i] = x[i];
-            self.__x_hb2[i] = x[i];
-        }
+        self.__x_hf1 = x[..self.dim].to_vec();
+        self.__x_hb1 = self.__x_hf1.clone();
+        self.__x_hf2 = self.__x_hf1.clone();
+        self.__x_hb2 = self.__x_hf1.clone();
+
     }
 }
 
