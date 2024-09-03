@@ -1,19 +1,28 @@
+use crate::groove::objective_master::ObjectiveMaster;
 use crate::groove::vars::RelaxedIKVars;
 use optimization_engine::{constraints::*, panoc::*, *};
-use crate::groove::objective_master::ObjectiveMaster;
 
 use crate::groove::groove::core::SolverStatus;
 pub struct OptimizationEngineOpen {
     _dim: usize,
-    cache: PANOCCache
+    cache: PANOCCache,
 }
 impl OptimizationEngineOpen {
     pub fn new(dim: usize) -> Self {
         let cache = PANOCCache::new(dim, 1e-14, 10);
-        OptimizationEngineOpen {_dim: dim, cache:cache }
+        OptimizationEngineOpen {
+            _dim: dim,
+            cache: cache,
+        }
     }
 
-    pub fn optimize(&mut self, x: &mut [f64], v: &RelaxedIKVars, om: &ObjectiveMaster, max_iter: usize) -> Result<SolverStatus, SolverError>{
+    pub fn optimize(
+        &mut self,
+        x: &mut [f64],
+        v: &RelaxedIKVars,
+        om: &ObjectiveMaster,
+        max_iter: usize,
+    ) -> Result<SolverStatus, SolverError> {
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
             let (_, my_grad) = om.gradient(u, v);
             for i in 0..my_grad.len() {
@@ -28,7 +37,10 @@ impl OptimizationEngineOpen {
         };
 
         // let bounds = NoConstraints::new();
-        let bounds = Rectangle::new(Option::from(v.robot.lower_joint_limits.as_slice()), Option::from(v.robot.upper_joint_limits.as_slice()));
+        let bounds = Rectangle::new(
+            Option::from(v.robot.lower_joint_limits.as_slice()),
+            Option::from(v.robot.upper_joint_limits.as_slice()),
+        );
 
         /* PROBLEM STATEMENT */
         let problem = Problem::new(&bounds, df, f);

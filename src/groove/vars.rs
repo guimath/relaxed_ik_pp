@@ -1,16 +1,16 @@
-use nalgebra::{UnitQuaternion, Vector3, Vector6};
 use crate::spacetime::robot::Robot;
+use nalgebra::{UnitQuaternion, Vector3, Vector6};
 
-use serde::{Serialize, Deserialize};
-use std::path::Path;
 use crate::utils::config_parser::Config;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 #[derive(Serialize, Deserialize)]
 pub struct VarsConstructorData {
     // pub urdf: String,
-    pub link_radius:f64,
+    pub link_radius: f64,
     pub base_links: Vec<String>,
     pub ee_links: Vec<String>,
-    starting_config: Vec<f64>
+    starting_config: Vec<f64>,
 }
 
 pub struct RelaxedIKVars {
@@ -24,7 +24,7 @@ pub struct RelaxedIKVars {
     pub goal_quats: Vec<UnitQuaternion<f64>>,
     pub tolerances: Vec<Vector6<f64>>,
     pub init_ee_positions: Vec<Vector3<f64>>,
-    pub init_ee_quats: Vec<UnitQuaternion<f64>>
+    pub init_ee_quats: Vec<UnitQuaternion<f64>>,
 }
 impl RelaxedIKVars {
     pub fn from_local_settings<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
@@ -32,10 +32,9 @@ impl RelaxedIKVars {
         Self::from_config(config)
     }
 
-    pub fn from_config(config: Config)->Self {
+    pub fn from_config(config: Config) -> Self {
         let _chain = k::Chain::<f64>::from_urdf_file(config.robot_urdf_path.clone()).unwrap();
         let num_chains = config.base_links.len();
-
 
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
         for _ in 0..num_chains {
@@ -44,8 +43,6 @@ impl RelaxedIKVars {
 
         let urdf = &std::fs::read_to_string(config.robot_urdf_path).unwrap();
         let robot = Robot::from_urdf(urdf, &config.base_links, &config.ee_links);
-
-        
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
@@ -56,14 +53,23 @@ impl RelaxedIKVars {
             init_ee_quats.push(pose[i].1);
         }
 
-        RelaxedIKVars{robot, init_state: config.starting_config.clone(), xopt: config.starting_config.clone(),
-            prev_state: config.starting_config.clone(), prev_state2: config.starting_config.clone(), prev_state3: config.starting_config.clone(),
-            goal_positions: init_ee_positions.clone(), goal_quats: init_ee_quats.clone(), tolerances, init_ee_positions, init_ee_quats}
+        RelaxedIKVars {
+            robot,
+            init_state: config.starting_config.clone(),
+            xopt: config.starting_config.clone(),
+            prev_state: config.starting_config.clone(),
+            prev_state2: config.starting_config.clone(),
+            prev_state3: config.starting_config.clone(),
+            goal_positions: init_ee_positions.clone(),
+            goal_quats: init_ee_quats.clone(),
+            tolerances,
+            init_ee_positions,
+            init_ee_quats,
+        }
     }
-    
-    // for webassembly
-    pub fn from_jsvalue( configs: VarsConstructorData, urdf: &str) -> Self  {
 
+    // for webassembly
+    pub fn from_jsvalue(configs: VarsConstructorData, urdf: &str) -> Self {
         let num_chains = configs.base_links.len();
 
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
@@ -83,10 +89,19 @@ impl RelaxedIKVars {
             init_ee_quats.push(pose[i].1);
         }
 
-        RelaxedIKVars{robot, init_state: configs.starting_config.clone(), xopt: configs.starting_config.clone(),
-            prev_state: configs.starting_config.clone(), prev_state2: configs.starting_config.clone(), prev_state3: configs.starting_config.clone(),
-            goal_positions: init_ee_positions.clone(), goal_quats: init_ee_quats.clone(), tolerances, init_ee_positions, init_ee_quats}
-
+        RelaxedIKVars {
+            robot,
+            init_state: configs.starting_config.clone(),
+            xopt: configs.starting_config.clone(),
+            prev_state: configs.starting_config.clone(),
+            prev_state2: configs.starting_config.clone(),
+            prev_state3: configs.starting_config.clone(),
+            goal_positions: init_ee_positions.clone(),
+            goal_quats: init_ee_quats.clone(),
+            tolerances,
+            init_ee_positions,
+            init_ee_quats,
+        }
     }
 
     pub fn update(&mut self, xopt: Vec<f64>) {
@@ -115,5 +130,4 @@ impl RelaxedIKVars {
         self.init_ee_positions = init_ee_positions.clone();
         self.init_ee_quats = init_ee_quats.clone();
     }
-
 }
