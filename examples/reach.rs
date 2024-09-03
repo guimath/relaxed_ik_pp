@@ -5,7 +5,7 @@ use serde::Serialize;
 use urdf_rs::Vec3;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time;
+use std::{fs, time};
 
 use urdf_viz::Viewer;
 use urdf_viz::{Action, Key, WindowEvent};
@@ -36,6 +36,9 @@ struct Cli {
     /// Visualization mode 
     #[clap(short, long, default_value_t, value_enum)]
     mode: VisMode,
+    /// Specify Camera position
+    #[arg(short, long, value_names=&["PITCH", "YAW", "DIST"], num_args = 3, default_values_t=&[0.785, -0.785 ,2.5],  allow_hyphen_values=true)]
+    camera_position: Vec<f32>,
     /// For motion only : show interpolated movement
     #[arg(short, long, default_value_t = false)]
     full_move: bool,
@@ -70,6 +73,11 @@ fn main() {
     let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
     // urdf viz 
     let (mut viewer, mut window) = Viewer::new("Example of grip");
+    let mut cam = viewer.arc_ball.clone();
+    cam.set_pitch(args.camera_position[0]);
+    cam.set_yaw(args.camera_position[1]);
+    cam.set_dist(args.camera_position[2]);
+    viewer.arc_ball = cam.clone();
     viewer.add_axis_cylinders(&mut window, "test", 0.2);
     // ROBOT
     let description : urdf_rs::Robot = urdf_rs::read_file(rik.config.robot_urdf_path.clone()).expect("robot URDF file not found");
@@ -79,7 +87,7 @@ fn main() {
     robot_viz.update_transforms();
     viewer.update(robot_viz);
     // OBSTACLE
-    let new_obst = conf.obstacles_urdf_path.unwrap().clone();
+    let new_obst = conf.obstacles_urdf_path.expect("No obstacles file in config, add obstacles: FILE_PATH to config").clone();
     let mut obstacle_description = urdf_rs::read_file(new_obst.clone()).unwrap();
     obstacle_description.links[0].visual[0].origin.xyz = Vec3(target);
     obstacle_description.links[0].collision[0].origin.xyz = Vec3(target);
@@ -96,8 +104,32 @@ fn main() {
         VisMode::VisualOnly => {
             let q = rik.vars.xopt.clone();
             robot.set_joint_positions_clamped(&q);
+            let folder = args.settings.file_stem().unwrap().to_str().unwrap();
+            let cam_poses = [(0.785, -0.785, args.camera_position[2]), (0.785, 0.785, args.camera_position[2]), (0.0,0.0,args.camera_position[2])];
+            let mut view_num = 0;
             while window.render_with_camera(&mut viewer.arc_ball) {
                 viewer.update(robot_viz);
+                for event in window.events().iter() {
+                    if let WindowEvent::Key(code, Action::Press, _mods) = event.value {
+                        match code {
+                            Key::V => { // Change view
+                                view_num = (view_num+1)%(cam_poses.len());
+                                cam.set_pitch(cam_poses[view_num].0);
+                                cam.set_yaw  (cam_poses[view_num].1);
+                                cam.set_dist (cam_poses[view_num].2);
+                                viewer.arc_ball = cam.clone();
+                            }
+                            Key::C => { // Capture screen
+                                let screen = window.snap_image();
+                                let pic_file = PathBuf::from(format!("ex_out/{folder}/view{view_num:}.png"));
+                                let _ = fs::create_dir_all(pic_file.parent().unwrap());
+                                let res = screen.save(pic_file);
+                                if res.is_err() {println!("Error when saving screen : {res:?}")}
+                            }
+                            _ => ()
+                        }
+                    }
+                }
             }
         }
         
