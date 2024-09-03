@@ -1,3 +1,4 @@
+use clap::Parser;
 use nalgebra::{Point2, Point3};
 use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
 use relaxed_ik_lib::utils::config_parser::Config;
@@ -8,7 +9,6 @@ use std::{fs, time};
 use urdf_rs::Vec3;
 use urdf_viz::Viewer;
 use urdf_viz::{Action, Key, WindowEvent};
-use clap::Parser;
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]

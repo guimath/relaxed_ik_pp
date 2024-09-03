@@ -1,13 +1,12 @@
-
 #![allow(unused_imports)]
-use relaxed_ik_lib::groove::objective::{groove_loss, swamp_groove_loss, swamp_loss};
 use plotters::prelude::*;
+use relaxed_ik_lib::groove::objective::{groove_loss, swamp_groove_loss, swamp_loss};
 
-use yaml_rust::{YamlLoader, Yaml};
+use clap::Parser;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use clap::Parser;
+use yaml_rust::{Yaml, YamlLoader};
 /// args
 #[derive(Parser)]
 struct Cli {

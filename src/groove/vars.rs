@@ -46,11 +46,11 @@ impl RelaxedIKVars {
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
-        let pose = robot.get_ee_pos_and_quat_immutable(&config.starting_config);
-        assert!(pose.len() == num_chains);
-        for i in 0..pose.len() {
-            init_ee_positions.push(pose[i].0);
-            init_ee_quats.push(pose[i].1);
+        let poses = robot.get_ee_pos_and_quat_immutable(&config.starting_config);
+        assert!(poses.len() == num_chains);
+        for pose in poses {
+            init_ee_positions.push(pose.0);
+            init_ee_quats.push(pose.1);
         }
 
         RelaxedIKVars {
@@ -81,12 +81,12 @@ impl RelaxedIKVars {
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
-        let pose = robot.get_ee_pos_and_quat_immutable(&configs.starting_config);
-        assert!(pose.len() == num_chains);
+        let poses = robot.get_ee_pos_and_quat_immutable(&configs.starting_config);
+        assert!(poses.len() == num_chains);
 
-        for i in 0..pose.len() {
-            init_ee_positions.push(pose[i].0);
-            init_ee_quats.push(pose[i].1);
+        for pose in poses {
+            init_ee_positions.push(pose.0);
+            init_ee_quats.push(pose.1);
         }
 
         RelaxedIKVars {
@@ -120,11 +120,11 @@ impl RelaxedIKVars {
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
-        let pose = self.robot.get_ee_pos_and_quat_immutable(&init_state);
+        let poses = self.robot.get_ee_pos_and_quat_immutable(&init_state);
 
-        for i in 0..pose.len() {
-            init_ee_positions.push(pose[i].0);
-            init_ee_quats.push(pose[i].1);
+        for pose in poses {
+            init_ee_positions.push(pose.0);
+            init_ee_quats.push(pose.1);
         }
 
         self.init_ee_positions = init_ee_positions.clone();

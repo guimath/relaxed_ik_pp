@@ -33,18 +33,19 @@ impl Arm {
         let num_dof = axis_types.len();
 
         let mut __do_rot_offset: Vec<bool> = Vec::new();
-        for i in 0..rot_offsets.len() {
-            if rot_offsets[i][0] == 0.0 && rot_offsets[i][1] == 0.0 && rot_offsets[i][2] == 0.0 {
+        for rot_offset in rot_offsets.clone() {
+            if rot_offset[0] == 0.0 && rot_offset[1] == 0.0 && rot_offset[2] == 0.0 {
                 __do_rot_offset.push(false);
             } else {
                 __do_rot_offset.push(true);
             }
         }
 
-        let mut displacements: Vec<nalgebra::Vector3<f64>> = Vec::new();
-        for i in 0..disp_offsets.len() {
-            displacements.push(disp_offsets[i]);
-        }
+        let displacements: Vec<nalgebra::Vector3<f64>> = disp_offsets.clone();
+        // Vec::new();
+        // for i in 0..disp_offsets.len() {
+        //     displacements.push(disp_offsets[i]);
+        // }
 
         let mut rot_offset_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();
         for i in 0..rot_offsets.len() {
@@ -61,18 +62,16 @@ impl Arm {
         let mut __is_prismatic: Vec<bool> = Vec::new();
         let mut __is_revolute_or_continuous: Vec<bool> = Vec::new();
         let mut __is_fixed: Vec<bool> = Vec::new();
-        for i in 0..joint_types.len() {
-            if joint_types[i] == *"prismatic" {
+        for joint_type in joint_types.clone() {
+            if joint_type == *"prismatic" {
                 __is_prismatic.push(true);
                 __is_revolute_or_continuous.push(false);
                 __is_fixed.push(false);
-            } else if joint_types[i] == *"continuous"
-                || joint_types[i] == *"revolute"
-            {
+            } else if joint_type == *"continuous" || joint_type == *"revolute" {
                 __is_prismatic.push(false);
                 __is_revolute_or_continuous.push(true);
                 __is_fixed.push(false);
-            } else if joint_types[i] == *"fixed" {
+            } else if joint_type == *"fixed" {
                 __is_prismatic.push(false);
                 __is_revolute_or_continuous.push(false);
                 __is_fixed.push(true);
@@ -95,8 +94,6 @@ impl Arm {
             __is_neg_y.push(false);
             __is_neg_z.push(false);
             if axis_types[i] == *"X" || axis_types[i] == *"x" {
-                __is_x[i] = true;
-            } else if axis_types[i] == *"X" || axis_types[i] == *"x" {
                 __is_x[i] = true;
             } else if axis_types[i] == *"Y" || axis_types[i] == *"y" {
                 __is_y[i] = true;
@@ -437,7 +434,7 @@ pub fn get_neg_quat_z(val: f64) -> nalgebra::UnitQuaternion<f64> {
     get_quat_z(-val)
 }
 
-pub fn euler_triple_to_3x3(t: &Vec<f64>) -> nalgebra::Matrix3<f64> {
+pub fn euler_triple_to_3x3(t: &[f64]) -> nalgebra::Matrix3<f64> {
     let xm = get_rot_x(t[0]);
     let ym = get_rot_y(t[1]);
     let zm = get_rot_z(t[2]);

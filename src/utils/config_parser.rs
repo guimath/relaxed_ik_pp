@@ -54,23 +54,19 @@ impl Config {
         let mut starting_config = Vec::new();
         if settings["starting_config"].is_badvalue() {
             warn!("No starting config provided, using all zeros");
-            for _ in 0..dof {
-                starting_config.push(0.0);
-            }
+            starting_config = vec![0.0; dof];
         } else {
             let starting_config_arr = settings["starting_config"].as_vec().unwrap();
             let arr_len = starting_config_arr.len();
-            for i in 0..arr_len {
-                starting_config.push(starting_config_arr[i].as_f64().unwrap());
+            for start_conf_yaml in starting_config_arr.iter() {
+                starting_config.push(start_conf_yaml.as_f64().unwrap());
             }
             if arr_len < dof {
                 warn!(
                     "Starting config not same size as dof ({:?} vs {:?}), padding with zeros",
                     arr_len, dof
                 );
-                for _ in arr_len..dof {
-                    starting_config.push(0.0);
-                }
+                starting_config.extend(vec![0.0; dof-arr_len]);
             }
         }
         let package = settings["base_links"].as_str().map(|p| p.to_string());
