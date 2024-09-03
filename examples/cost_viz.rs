@@ -22,14 +22,12 @@ struct Cli {
 //     groove_loss(x, 0., 2, 0.1, 10.0, 2)
 // } 
 fn yaml_to_vec(yaml_vec: Yaml) -> Option<Vec<f64>> {
-    match yaml_vec.as_vec() {
-        Some(v) => 
-            Some(v
+    yaml_vec.as_vec().map(
+        |v| v
             .iter()
             .map(|yaml| yaml.as_f64().unwrap()) 
-            .collect()),
-        None => None,
-    }
+            .collect()
+    )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

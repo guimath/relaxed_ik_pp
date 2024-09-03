@@ -12,7 +12,7 @@ impl OptimizationEngineOpen {
         let cache = PANOCCache::new(dim, 1e-14, 10);
         OptimizationEngineOpen {
             _dim: dim,
-            cache: cache,
+            cache,
         }
     }
 
@@ -50,8 +50,8 @@ impl OptimizationEngineOpen {
         // let mut panoc = PANOCOptimizer::new(problem, &mut self.cache);
 
         // Invoke the solver
-        let status = panoc.solve(x);
-        status
+        
+        panoc.solve(x)
         // println!("Panoc status: {:#?}", status);
         // println!("Panoc solution: {:#?}", x);
     }

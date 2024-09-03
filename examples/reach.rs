@@ -153,7 +153,7 @@ fn main() {
             let mut incr = 0.1;
             let mut live_compute = true;
             let mut cur_target = [-100.0f64; 3];
-            let mut next_target = target.clone();
+            let mut next_target = target;
             rik.vars.robot.arms[0].displacements[rik.last_joint_num][2] =
                 rik.gripper_length + rik.config.approach_dist;
             while window.render_with_camera(&mut viewer.arc_ball) {
@@ -202,15 +202,15 @@ fn main() {
                 for event in window.events().iter() {
                     if let WindowEvent::Key(code, Action::Press, _mods) = event.value {
                         match code {
-                            Key::Up => next_target[0] = next_target[0] - incr,
-                            Key::Down => next_target[0] = next_target[0] + incr,
-                            Key::Left => next_target[1] = next_target[1] - incr,
-                            Key::Right => next_target[1] = next_target[1] + incr,
-                            Key::H => next_target[2] = next_target[2] + incr,
-                            Key::L => next_target[2] = next_target[2] - incr,
+                            Key::Up => next_target[0] -= incr,
+                            Key::Down => next_target[0] += incr,
+                            Key::Left => next_target[1] -= incr,
+                            Key::Right => next_target[1] += incr,
+                            Key::H => next_target[2] += incr,
+                            Key::L => next_target[2] -= incr,
                             Key::Add => incr += incr / 10.0,
                             Key::Subtract => incr -= incr / 10.0,
-                            Key::C => cur_target[0] = cur_target[0] + 1.0, // just to trigger recompute
+                            Key::C => cur_target[0] += 1.0, // just to trigger recompute
                             Key::R => {
                                 rik.reset_origin();
                                 robot.set_joint_positions_clamped(&rik.vars.xopt.clone());

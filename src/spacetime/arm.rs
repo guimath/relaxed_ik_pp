@@ -43,7 +43,7 @@ impl Arm {
 
         let mut displacements: Vec<nalgebra::Vector3<f64>> = Vec::new();
         for i in 0..disp_offsets.len() {
-            displacements.push(disp_offsets[i].clone());
+            displacements.push(disp_offsets[i]);
         }
 
         let mut rot_offset_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();
@@ -62,17 +62,17 @@ impl Arm {
         let mut __is_revolute_or_continuous: Vec<bool> = Vec::new();
         let mut __is_fixed: Vec<bool> = Vec::new();
         for i in 0..joint_types.len() {
-            if joint_types[i] == String::from("prismatic") {
+            if joint_types[i] == *"prismatic" {
                 __is_prismatic.push(true);
                 __is_revolute_or_continuous.push(false);
                 __is_fixed.push(false);
-            } else if joint_types[i] == String::from("continuous")
-                || joint_types[i] == String::from("revolute")
+            } else if joint_types[i] == *"continuous"
+                || joint_types[i] == *"revolute"
             {
                 __is_prismatic.push(false);
                 __is_revolute_or_continuous.push(true);
                 __is_fixed.push(false);
-            } else if joint_types[i] == String::from("fixed") {
+            } else if joint_types[i] == *"fixed" {
                 __is_prismatic.push(false);
                 __is_revolute_or_continuous.push(false);
                 __is_fixed.push(true);
@@ -94,19 +94,19 @@ impl Arm {
             __is_neg_x.push(false);
             __is_neg_y.push(false);
             __is_neg_z.push(false);
-            if axis_types[i] == String::from("X") || axis_types[i] == String::from("x") {
+            if axis_types[i] == *"X" || axis_types[i] == *"x" {
                 __is_x[i] = true;
-            } else if axis_types[i] == String::from("X") || axis_types[i] == String::from("x") {
+            } else if axis_types[i] == *"X" || axis_types[i] == *"x" {
                 __is_x[i] = true;
-            } else if axis_types[i] == String::from("Y") || axis_types[i] == String::from("y") {
+            } else if axis_types[i] == *"Y" || axis_types[i] == *"y" {
                 __is_y[i] = true;
-            } else if axis_types[i] == String::from("Z") || axis_types[i] == String::from("z") {
+            } else if axis_types[i] == *"Z" || axis_types[i] == *"z" {
                 __is_z[i] = true;
-            } else if axis_types[i] == String::from("-x") {
+            } else if axis_types[i] == *"-x" {
                 __is_neg_x[i] = true;
-            } else if axis_types[i] == String::from("-y") {
+            } else if axis_types[i] == *"-y" {
                 __is_neg_y[i] = true;
-            } else if axis_types[i] == String::from("-z") {
+            } else if axis_types[i] == *"-z" {
                 __is_neg_z[i] = true;
             }
         }
@@ -161,26 +161,26 @@ impl Arm {
                 pt = rot_quat * self.displacements[i] + pt;
 
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
 
                 let joint_val = x[joint_idx];
                 if self.__is_x[joint_idx] {
-                    rot_quat = rot_quat * get_quat_x(joint_val);
+                    rot_quat *= get_quat_x(joint_val);
                 } else if self.__is_y[joint_idx] {
-                    rot_quat = rot_quat * get_quat_y(joint_val);
+                    rot_quat *= get_quat_y(joint_val);
                 } else if self.__is_z[joint_idx] {
-                    rot_quat = rot_quat * get_quat_z(joint_val);
+                    rot_quat *= get_quat_z(joint_val);
                 } else if self.__is_neg_x[joint_idx] {
-                    rot_quat = rot_quat * get_quat_x(-joint_val);
+                    rot_quat *= get_quat_x(-joint_val);
                 } else if self.__is_neg_y[joint_idx] {
-                    rot_quat = rot_quat * get_quat_y(-joint_val);
+                    rot_quat *= get_quat_y(-joint_val);
                 } else if self.__is_neg_z[joint_idx] {
-                    rot_quat = rot_quat * get_quat_z(-joint_val);
+                    rot_quat *= get_quat_z(-joint_val);
                 }
 
-                out_positions.push(pt.clone());
-                out_rot_quats.push(rot_quat.clone());
+                out_positions.push(pt);
+                out_rot_quats.push(rot_quat);
 
                 joint_idx += 1;
             } else if self.__is_prismatic[i] {
@@ -211,21 +211,21 @@ impl Arm {
                         + nalgebra::Vector3::new(0., 0., -joint_val);
                 }
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
-                out_positions.push(pt.clone());
-                out_rot_quats.push(rot_quat.clone());
+                out_positions.push(pt);
+                out_rot_quats.push(rot_quat);
                 joint_idx += 1;
             } else {
                 pt = rot_quat * self.displacements[i] + pt;
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
-                out_positions.push(pt.clone());
-                out_rot_quats.push(rot_quat.clone());
+                out_positions.push(pt);
+                out_rot_quats.push(rot_quat);
             }
         }
-        out_rot_quats.push(rot_quat.clone());
+        out_rot_quats.push(rot_quat);
 
         (out_positions, out_rot_quats)
     }
@@ -297,22 +297,22 @@ impl Arm {
                 pt = rot_quat * self.displacements[i] + pt;
 
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
 
                 let joint_val = x[joint_idx];
                 if self.__is_x[joint_idx] {
-                    rot_quat = rot_quat * get_quat_x(joint_val);
+                    rot_quat *= get_quat_x(joint_val);
                 } else if self.__is_y[joint_idx] {
-                    rot_quat = rot_quat * get_quat_y(joint_val);
+                    rot_quat *= get_quat_y(joint_val);
                 } else if self.__is_z[joint_idx] {
-                    rot_quat = rot_quat * get_quat_z(joint_val);
+                    rot_quat *= get_quat_z(joint_val);
                 } else if self.__is_neg_x[joint_idx] {
-                    rot_quat = rot_quat * get_quat_x(-joint_val);
+                    rot_quat *= get_quat_x(-joint_val);
                 } else if self.__is_neg_y[joint_idx] {
-                    rot_quat = rot_quat * get_quat_y(-joint_val);
+                    rot_quat *= get_quat_y(-joint_val);
                 } else if self.__is_neg_z[joint_idx] {
-                    rot_quat = rot_quat * get_quat_z(-joint_val);
+                    rot_quat *= get_quat_z(-joint_val);
                 }
 
                 joint_idx += 1;
@@ -344,13 +344,13 @@ impl Arm {
                         + nalgebra::Vector3::new(0., 0., -joint_val);
                 }
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
                 joint_idx += 1;
             } else {
                 pt = rot_quat * self.displacements[i] + pt;
                 if self.__do_rot_offset[i] {
-                    rot_quat = rot_quat * self.rot_offset_quats[i];
+                    rot_quat *= self.rot_offset_quats[i];
                 }
             }
         }

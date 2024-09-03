@@ -34,7 +34,7 @@ impl Config {
         let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
         let settings = &docs[0];
         let mut robot_urdf_path = PathBuf::from(path_to_setting.as_ref());
-        robot_urdf_path.set_file_name("urdfs".to_owned());
+        robot_urdf_path.set_file_name("urdfs");
 
         let obstacles_urdf_path = match settings["obstacles"].as_str() {
             Some(file_name) => {
@@ -73,10 +73,7 @@ impl Config {
                 }
             }
         }
-        let package = match settings["base_links"].as_str() {
-            Some(p) => Some(p.to_string()),
-            None => None,
-        };
+        let package = settings["base_links"].as_str().map(|p| p.to_string());
         let approach_dist = settings["approach_dist"].as_f64().unwrap_or(0.03);
         let cost_threshold = settings["cost_threshold"].as_f64().unwrap_or(-50.0);
 

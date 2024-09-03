@@ -25,7 +25,7 @@ impl RelaxedIK {
         let vars = RelaxedIKVars::from_jsvalue(cfg, &urdf);
 
         let om = ObjectiveMaster::relaxed_ik(&vars.robot.chain_lengths);
-        let groove = OptimizationEngineOpen::new(vars.robot.num_dofs.clone());
+        let groove = OptimizationEngineOpen::new(vars.robot.num_dofs);
         Self { vars, om, groove }
     }
 
@@ -116,10 +116,10 @@ impl RelaxedIK {
                 self.vars.goal_positions[i] = self.vars.init_ee_positions[i] + pos_goals[i];
                 self.vars.goal_quats[i] = quat_goals[i] * self.vars.init_ee_quats[i];
             } else {
-                self.vars.goal_positions[i] = pos_goals[i].clone();
-                self.vars.goal_quats[i] = quat_goals[i].clone();
+                self.vars.goal_positions[i] = pos_goals[i];
+                self.vars.goal_quats[i] = quat_goals[i];
             }
-            self.vars.tolerances[i] = tolerances[i].clone();
+            self.vars.tolerances[i] = tolerances[i];
         }
 
         self.groove

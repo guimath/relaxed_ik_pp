@@ -29,7 +29,7 @@ impl Robot {
         for i in 0..num_chains {
             let base_link = chain.find_link(base_links[i].as_str()).unwrap();
             let ee_link = chain.find_link(ee_links[i].as_str()).unwrap();
-            let serial_chain = k::SerialChain::from_end_to_root(&ee_link, &base_link);
+            let serial_chain = k::SerialChain::from_end_to_root(ee_link, base_link);
 
             let mut axis_types: Vec<String> = Vec::new();
             let mut joint_types: Vec<String> = Vec::new();
@@ -102,7 +102,7 @@ impl Robot {
                 joint_types.clone(),
             );
             arms.push(arm);
-            chain_lengths.push(axis_types.len() as usize);
+            chain_lengths.push(axis_types.len());
             num_dofs += axis_types.len();
         }
         Robot {

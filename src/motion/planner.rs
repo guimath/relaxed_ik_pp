@@ -51,8 +51,8 @@ impl Planner {
         // Create path planner with IK solver
         let planner = openrr_planner::JointPathPlannerWithIk::new(planner, solver);
         Self {
-            obstacles: obstacles,
-            planner: planner,
+            obstacles,
+            planner,
             using_joint_names: config.used_links,
         }
     }

@@ -35,7 +35,7 @@ impl RelaxedWrapper {
         let om = ObjectiveMaster::relaxed_ik(&vars.robot.chain_lengths);
         debug!("Objectives created");
 
-        let groove = OptimizationEngineOpen::new(vars.robot.num_dofs.clone());
+        let groove = OptimizationEngineOpen::new(vars.robot.num_dofs);
         debug!("Optimizer created");
         let init_q = vars.init_state.clone();
         let planner = Planner::from_config(config.clone());

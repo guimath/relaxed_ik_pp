@@ -177,7 +177,7 @@ fn main() {
                     shapes[0].0.translation = Translation3::new(target[0], target[1], target[2]);
                     let compound = Compound::new(shapes.clone());
                     rik.planner.obstacles = compound;
-                    let grip = rik.grip(target.clone());
+                    let grip = rik.grip(target);
                     matrix[j][i] = match grip {
                         Ok((q1, q2, _res)) => {
                             let h = (150 - (10 * (q1.len() + q2.len() - 1)).clamp(0, 125)) as f64

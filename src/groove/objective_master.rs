@@ -130,12 +130,10 @@ impl ObjectiveMaster {
             } else {
                 self.__gradient_lite(x, vars)
             }
+        } else if self.finite_diff_grad {
+            self.__gradient_finite_diff(x, vars)
         } else {
-            if self.finite_diff_grad {
-                self.__gradient_finite_diff(x, vars)
-            } else {
-                self.__gradient(x, vars)
-            }
+            self.__gradient(x, vars)
         }
     }
 
@@ -188,7 +186,7 @@ impl ObjectiveMaster {
             }
         }
 
-        if finite_diff_list.len() > 0 {
+        if !finite_diff_list.is_empty() {
             for i in 0..x.len() {
                 let mut x_h = x.to_vec();
                 x_h[i] += 0.0000001;
@@ -226,7 +224,7 @@ impl ObjectiveMaster {
             }
         }
 
-        if finite_diff_list.len() > 0 {
+        if !finite_diff_list.is_empty() {
             for i in 0..x.len() {
                 let mut x_h = x.to_vec();
                 x_h[i] += 0.0000001;

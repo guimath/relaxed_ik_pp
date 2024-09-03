@@ -35,7 +35,7 @@ pub fn swamp_groove_loss(
     p1: i32,
 ) -> f64 {
     let x = (2.0 * x_val - l_bound - u_bound) / (u_bound - l_bound);
-    let b = (-1.0 / (0.05 as f64).ln()).powf(1.0 / p1 as f64);
+    let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p1 as f64);
     -f1 * ((-(x_val - g).powi(2)) / (2.0 * c.powi(2))).exp()
         + f2 * (x_val - g).powi(2)
         + f3 * (1.0 - (-(x / b).powi(p1)).exp())
@@ -43,7 +43,7 @@ pub fn swamp_groove_loss(
 
 pub fn swamp_loss(x_val: f64, l_bound: f64, u_bound: f64, f1: f64, f2: f64, p1: i32) -> f64 {
     let x = (2.0 * x_val - l_bound - u_bound) / (u_bound - l_bound);
-    let b = (-1.0 / (0.05 as f64).ln()).powf(1.0 / p1 as f64);
+    let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p1 as f64);
     (f1 + f2 * x.powi(2)) * (1.0 - (-(x / b).powi(p1)).exp()) - 1.0
 }
 
@@ -62,7 +62,7 @@ pub fn swamp_groove_loss_derivative(
         return 0.0;
     }
     let x = (2.0 * x_val - l_bound - u_bound) / (u_bound - l_bound);
-    let b = (-1.0 / (0.05 as f64).ln()).powf(1.0 / p1 as f64);
+    let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p1 as f64);
 
     -f1 * ((-x_val.powi(2)) / (2.0 * c.powi(2))).exp() * ((-2.0 * x_val) / (2.0 * c.powi(2)))
         + 2.0 * f2 * x_val
@@ -123,7 +123,7 @@ pub trait ObjectiveTrait {
         (f_0, grad)
     }
     fn gradient_type(&self) -> usize {
-        return 1;
+        1
     } // manual diff = 0, finite diff = 1
 }
 
@@ -485,13 +485,11 @@ impl ObjectiveTrait for MatchEERotaDoF {
 
         if bound <= 1e-2 {
             groove_loss(angle, 0., 2, 0.1, 10.0, 2)
+        } else if bound >= 3.14159260 {
+            swamp_loss(angle, -bound, bound, 100.0, 0.1, 20)
         } else {
-            if bound >= 3.14159260 {
-                swamp_loss(angle, -bound, bound, 100.0, 0.1, 20)
-            } else {
-                swamp_groove_loss(angle, 0.0, -bound, bound, bound * 2.0, 1.0, 0.01, 100.0, 20)
-                // swamp_groove_loss(angle, 0.0, -bound, bound, 10.0, 1.0, 0.01, 100.0, 20)
-            }
+            swamp_groove_loss(angle, 0.0, -bound, bound, bound * 2.0, 1.0, 0.01, 100.0, 20)
+            // swamp_groove_loss(angle, 0.0, -bound, bound, 10.0, 1.0, 0.01, 100.0, 20)
         }
     }
 
@@ -628,7 +626,7 @@ impl ObjectiveTrait for MaximizeManipulability {
         v: &vars::RelaxedIKVars,
         _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
     ) -> f64 {
-        let x_val = v.robot.get_manipulability_immutable(&x);
+        let x_val = v.robot.get_manipulability_immutable(x);
         groove_loss(x_val, 1.0, 2, 0.5, 0.1, 2)
     }
 
