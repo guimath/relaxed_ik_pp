@@ -22,9 +22,7 @@ impl OptimizationEngineOpen {
     ) -> Result<SolverStatus, SolverError> {
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
             let (_, my_grad) = om.gradient(u, v);
-            for i in 0..my_grad.len() {
-                grad[i] = my_grad[i];
-            }
+            grad[..my_grad.len()].copy_from_slice(&my_grad[..]);
             Ok(())
         };
 
@@ -32,7 +30,6 @@ impl OptimizationEngineOpen {
             *c = om.call(u, v);
             Ok(())
         };
-
         // let bounds = NoConstraints::new();
         let bounds = Rectangle::new(
             Option::from(v.robot.lower_joint_limits.as_slice()),
@@ -43,7 +40,7 @@ impl OptimizationEngineOpen {
         let problem = Problem::new(&bounds, df, f);
         let mut panoc = PANOCOptimizer::new(problem, &mut self.cache)
             .with_max_iter(max_iter)
-            .with_tolerance(0.0005);
+            .with_tolerance(1e-5);
         // let mut panoc = PANOCOptimizer::new(problem, &mut self.cache);
 
         // Invoke the solver
@@ -53,3 +50,4 @@ impl OptimizationEngineOpen {
         // println!("Panoc solution: {:#?}", x);
     }
 }
+
