@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 nalgebra = {version = "0.30", features = ["serde-serialize"]}
-yaml-rust = "0.4"
 optimization_engine =  { version = "0.7.7", features = ["wasm"] }
 ndarray = "0.13.0"
 num = "0.2.0"
@@ -21,7 +20,8 @@ csv = "1.1.6"
 chrono = "0.4.19"
 serde = { version = "1.0.136", features = ["derive"] }
 dirs = "4.0.0"
-urdf-rs = "0.8"
+
+urdf-rs = "0.8" #{path = "../urdf-rs"}#"0.8"
 k = "0.31"
 ncollide3d = "0.33"
 # openrr planner
@@ -35,6 +35,7 @@ serde-wasm-bindgen = "0.4"
 js-sys = "0.3"
 serde_json = "1.0"
 console_error_panic_hook = "0.1"
+toml = "0.8"
 
 [dependencies.web-sys]
 version = "0.3"
