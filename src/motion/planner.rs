@@ -4,7 +4,6 @@ use nalgebra::{Isometry, Vector3};
 use ncollide3d::shape::{Compound, Cuboid, ShapeHandle};
 use openrr_planner::FromUrdf;
 use std::sync::Arc;
-use urdf_rs::Robot;
 pub struct Planner
 // where
 //     T: RealField + Copy + k::SubsetOf<f64>,
@@ -19,11 +18,10 @@ pub struct Planner
 
 impl Planner {
     pub fn from_config(config: Config) -> Self {
-        let description: Robot =
-            urdf_rs::read_file(config.robot_urdf_path).expect("robot URDF file not found");
+        let description =
+            urdf_rs::read_file(config.urdf_paths.robot).expect("robot URDF file not found");
         let robot: Arc<k::Chain<f64>> = Arc::new(k::Chain::from(description.clone()));
-
-        let obstacles = match config.obstacles_urdf_path {
+        let obstacles = match config.urdf_paths.obstacle {
             Some(file_path) => {
                 let urdf_obstacles =
                     urdf_rs::utils::read_urdf_or_xacro(file_path).expect("obstacle file not found");
@@ -39,7 +37,7 @@ impl Planner {
         };
 
         // TODO why takes a lot of time
-        let planner = openrr_planner::JointPathPlannerBuilder::from_urdf_robot(description.clone())
+        let planner = openrr_planner::JointPathPlannerBuilder::from_urdf_robot_with_base_dir(description.clone(), None)
             .collision_check_margin(0.01f64)
             .reference_robot(robot.clone())
             .step_length(0.05)
@@ -53,7 +51,7 @@ impl Planner {
         Self {
             obstacles,
             planner,
-            using_joint_names: config.used_links,
+            using_joint_names: config.links.used_joints,
         }
     }
 

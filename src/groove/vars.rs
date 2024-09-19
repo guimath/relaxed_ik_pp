@@ -13,6 +13,7 @@ pub struct VarsConstructorData {
     starting_config: Vec<f64>,
 }
 
+#[derive(Clone)]
 pub struct RelaxedIKVars {
     pub robot: Robot,
     pub init_state: Vec<f64>,
@@ -33,20 +34,20 @@ impl RelaxedIKVars {
     }
 
     pub fn from_config(config: Config) -> Self {
-        let _chain = k::Chain::<f64>::from_urdf_file(config.robot_urdf_path.clone()).unwrap();
-        let num_chains = config.base_links.len();
+        let _chain = k::Chain::<f64>::from_urdf_file(config.urdf_paths.robot.clone()).unwrap();
+        let num_chains = config.links.base.len();
 
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
         for _ in 0..num_chains {
             tolerances.push(Vector6::new(0., 0., 0., 0., 0., 0.));
         }
 
-        let urdf = &std::fs::read_to_string(config.robot_urdf_path).unwrap();
-        let robot = Robot::from_urdf(urdf, &config.base_links, &config.ee_links);
+        let urdf = &std::fs::read_to_string(config.urdf_paths.robot).unwrap();
+        let robot = Robot::from_urdf(urdf, &config.links.base, &config.links.ee);
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();
         let mut init_ee_quats: Vec<UnitQuaternion<f64>> = Vec::new();
-        let poses = robot.get_ee_pos_and_quat_immutable(&config.starting_config);
+        let poses = robot.get_ee_pos_and_quat_immutable(&config.starting_joint_values);
         assert!(poses.len() == num_chains);
         for pose in poses {
             init_ee_positions.push(pose.0);
@@ -55,11 +56,11 @@ impl RelaxedIKVars {
 
         RelaxedIKVars {
             robot,
-            init_state: config.starting_config.clone(),
-            xopt: config.starting_config.clone(),
-            prev_state: config.starting_config.clone(),
-            prev_state2: config.starting_config.clone(),
-            prev_state3: config.starting_config.clone(),
+            init_state: config.starting_joint_values.clone(),
+            xopt: config.starting_joint_values.clone(),
+            prev_state: config.starting_joint_values.clone(),
+            prev_state2: config.starting_joint_values.clone(),
+            prev_state3: config.starting_joint_values.clone(),
             goal_positions: init_ee_positions.clone(),
             goal_quats: init_ee_quats.clone(),
             tolerances,

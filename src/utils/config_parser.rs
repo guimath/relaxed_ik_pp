@@ -4,27 +4,40 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use yaml_rust::{Yaml, YamlLoader};
-#[derive(Clone, Debug)]
-pub struct Config {
-    pub robot_urdf_path: PathBuf,
-    pub obstacles_urdf_path: Option<PathBuf>,
-    pub used_links: Vec<String>,
-    pub base_links: Vec<String>,
-    pub ee_links: Vec<String>,
-    pub starting_config: Vec<f64>,
-    pub package_paths: HashMap<String, String>,
-    pub approach_dist: f64,
-    pub cost_threshold: f64,
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct UrdfPath {
+    pub robot:PathBuf,
+    pub obstacle: Option<PathBuf>,
 }
 
-fn yaml_to_vec(yaml_vec: Yaml, err_msg: &str) -> Vec<String> {
-    yaml_vec
-        .as_vec()
-        .unwrap()
-        .iter()
-        .map(|yaml| yaml.as_str().expect(err_msg).to_string())
-        .collect()
+#[derive(Deserialize, Debug, Clone)]
+pub struct LinksNames {
+    pub base: Vec<String>,
+    pub ee: Vec<String>,
+    pub used_joints: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct ConfigParse{
+    urdf_paths: UrdfPath,
+    /// List of package name used in urdf files
+    packages: Option<Vec<String>>,
+    links: LinksNames,
+    // starting joint values. Default = 0.0 for all
+    starting_joint_values: Option<Vec<f64>>,
+    // additional distance for pre grasp motion. Default = 0.03
+    approach_dist: Option<f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Config{
+    pub urdf_paths: UrdfPath,
+    pub package_paths: HashMap<String, String>,
+    pub links: LinksNames,
+    pub starting_joint_values: Vec<f64>,
+    pub approach_dist: f64,
 }
 
 impl Config {
@@ -32,67 +45,28 @@ impl Config {
         let mut file = File::open(path_to_setting.clone()).unwrap();
         let mut contents = String::new();
         let _res = file.read_to_string(&mut contents).unwrap();
-        let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
-        let settings = &docs[0];
-        let mut robot_urdf_path = PathBuf::from(path_to_setting.as_ref());
-        robot_urdf_path.set_file_name("urdfs");
-
-        let obstacles_urdf_path = match settings["obstacles"].as_str() {
-            Some(file_name) => {
-                let mut path = robot_urdf_path.clone();
-                path.push(file_name);
-                Some(path)
-            }
-            None => None,
-        };
-
-        robot_urdf_path.push(settings["urdf"].as_str().unwrap());
-
-        let base_links = yaml_to_vec(settings["base_links"].clone(), "base_links parsing error");
-        let ee_links = yaml_to_vec(settings["ee_links"].clone(), "ee_links parsing error");
-        let used_links = yaml_to_vec(settings["used_links"].clone(), "used_links parsing error");
-        let dof = used_links.len();
-        let mut starting_config = Vec::new();
-        if settings["starting_config"].is_badvalue() {
-            warn!("No starting config provided, using all zeros");
-            starting_config = vec![0.0; dof];
-        } else {
-            let starting_config_arr = settings["starting_config"].as_vec().unwrap();
-            let arr_len = starting_config_arr.len();
-            for start_conf_yaml in starting_config_arr.iter() {
-                starting_config.push(start_conf_yaml.as_f64().unwrap());
-            }
-            if arr_len < dof {
-                warn!(
-                    "Starting config not same size as dof ({:?} vs {:?}), padding with zeros",
-                    arr_len, dof
-                );
-                starting_config.extend(vec![0.0; dof-arr_len]);
-            }
-        }
-
-
+        let res: Result<ConfigParse, toml::de::Error> = toml::from_str(&contents);
+        if let Err(e) = res {
+            println!("{}", e);
+            panic!();
+        } 
+        let conf = res.unwrap();
+        // Defaults : 
+        let starting_joints_values = conf.starting_joint_values.unwrap_or(vec![0.0f64; conf.links.used_joints.len()]);
         let mut package_paths: HashMap<String, String> = HashMap::new();
-        if settings["packages"].is_array(){
-            let packages =  yaml_to_vec(settings["packages"].clone(), "packages parsing error");
+        if let Some(packages) = conf.packages {
             for package in packages {
                 let package_path = urdf_rs::utils::rospack_find(package.as_str()).unwrap();
                 package_paths.insert(package, package_path);
             }
-        } 
-        let approach_dist = settings["approach_dist"].as_f64().unwrap_or(0.03);
-        let cost_threshold = settings["cost_threshold"].as_f64().unwrap_or(-50.0);
-
-        Self {
-            robot_urdf_path,
-            obstacles_urdf_path,
-            used_links,
-            base_links,
-            ee_links,
-            starting_config,
-            package_paths,
-            approach_dist,
-            cost_threshold,
+        }
+        let approach_dist = conf.approach_dist.unwrap_or(0.03);
+        Self{
+            urdf_paths:conf.urdf_paths,
+            package_paths: package_paths,
+            links: conf.links,
+            starting_joint_values: starting_joints_values,
+            approach_dist: approach_dist,
         }
     }
 }
