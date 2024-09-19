@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Instant;
 
 use log::{debug, info, warn};
 use optimization_engine::core::SolverStatus;
@@ -19,12 +20,14 @@ pub struct RelaxedWrapper {
     pub planner: Planner,
     pub last_joint_num: usize,
     pub gripper_length: f64,
+    pub min_possible_cost: f64,
 }
 
 #[pymethods]
 impl RelaxedWrapper {
     #[new]
     pub fn new(path_to_setting: &str) -> Self {
+        let t1 = Instant::now();
         info!("Using settings file {path_to_setting}");
 
         let config = Config::from_settings_file(PathBuf::from(path_to_setting));
@@ -45,6 +48,7 @@ impl RelaxedWrapper {
         let tolerances = [0.0f64; 6];
         let last_joint_num = vars.robot.arms[0].displacements.len() - 1;
         let gripper_length = vars.robot.arms[0].displacements[last_joint_num][2];
+        let min_possible_cost: f64 = - om.weight_priors.iter().sum::<f64>();
         let mut a = Self {
             config,
             vars,
@@ -54,9 +58,11 @@ impl RelaxedWrapper {
             planner,
             last_joint_num,
             gripper_length,
+            min_possible_cost,
         };
         a.set_ik_params(pos_goals, quat_goals, tolerances);
-        debug!("rik fully initialized");
+        let dur = Instant::now() - t1; 
+        debug!("rik fully initialized in {dur:.3?} - minimum possible cost {min_possible_cost:.3?}");
         a
     }
 
@@ -128,7 +134,7 @@ impl RelaxedWrapper {
         let x_start = self.vars.xopt.clone();
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] =
             self.gripper_length + self.config.approach_dist;
-        let _res1 = self.solve_ik(pos_goals)?;
+        let _res1 = self.repeat_solve_ik(pos_goals)?;
         let x_inter = self.vars.xopt.clone();
         self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length;
         let res = self.solve_ik(pos_goals)?;
@@ -169,23 +175,56 @@ impl RelaxedWrapper {
         }
     }
 
+
+    pub fn repeat_solve_ik(&mut self, pos_goals: [f64; 3])-> Result<SolverStatus, openrr_planner::Error>{
+        let prev_cost_threshold= -260.0;//self.config.cost_threshold;
+        const MAX_IK_ITER:usize = 4;
+        // self.config.cost_threshold = 1000.0;
+        //init vars
+        for i in 0..self.vars.robot.num_chains {
+            self.vars.goal_positions[i] =
+                Vector3::new(pos_goals[3 * i], pos_goals[3 * i + 1], pos_goals[3 * i + 2]);
+        }
+
+        for i in 0..(MAX_IK_ITER-1) {
+            match self._optimize_ik(){
+                Err(err) => {
+                    // self.config.cost_threshold = prev_cost_threshold;
+                    return Err(err);
+                }
+                Ok(solve_status) => {
+                    if solve_status.cost_value() < prev_cost_threshold {
+                        debug!("reached {} after {} IK solved", prev_cost_threshold, i);
+                        // self.config.cost_threshold = prev_cost_threshold;
+                        return Ok(solve_status);
+                    }
+                }
+            };
+        }
+        // self.config.cost_threshold = prev_cost_threshold;
+        self._optimize_ik()
+    }
+
     /// gets solution using relaxed ik, with threshold test
     pub fn solve_ik(&mut self, pos_goals: [f64; 3]) -> Result<SolverStatus, openrr_planner::Error> {
         for i in 0..self.vars.robot.num_chains {
             self.vars.goal_positions[i] =
                 Vector3::new(pos_goals[3 * i], pos_goals[3 * i + 1], pos_goals[3 * i + 2]);
         }
+        self._optimize_ik()
+    }
+    
+    fn _optimize_ik (&mut self) -> Result<SolverStatus, openrr_planner::Error> {
         let mut out_x = self.vars.xopt.clone();
-
-        match self.groove.optimize(&mut out_x, &self.vars, &self.om, 100) {
+        match self.groove.optimize(&mut out_x, &self.vars, &self.om, 200) {
             Ok(stat) => {
                 let cost = stat.cost_value();
-                if cost > self.config.cost_threshold {
+                if cost > 100.0 {
                     // TODO use custom Error
                     Err(openrr_planner::Error::ParseError(format!(
                         "ik, cost higher then threshold {:?} {}",
                         stat.cost_value(),
-                        self.config.cost_threshold
+                        100.0
                     )))
                 } else {
                     self.vars.update(out_x.clone());
