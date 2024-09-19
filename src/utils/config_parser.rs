@@ -1,4 +1,5 @@
 use log::warn;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
@@ -12,7 +13,7 @@ pub struct Config {
     pub base_links: Vec<String>,
     pub ee_links: Vec<String>,
     pub starting_config: Vec<f64>,
-    pub package: Option<String>,
+    pub package_paths: HashMap<String, String>,
     pub approach_dist: f64,
     pub cost_threshold: f64,
 }
@@ -69,7 +70,16 @@ impl Config {
                 starting_config.extend(vec![0.0; dof-arr_len]);
             }
         }
-        let package = settings["base_links"].as_str().map(|p| p.to_string());
+
+
+        let mut package_paths: HashMap<String, String> = HashMap::new();
+        if settings["packages"].is_array(){
+            let packages =  yaml_to_vec(settings["packages"].clone(), "packages parsing error");
+            for package in packages {
+                let package_path = urdf_rs::utils::rospack_find(package.as_str()).unwrap();
+                package_paths.insert(package, package_path);
+            }
+        } 
         let approach_dist = settings["approach_dist"].as_f64().unwrap_or(0.03);
         let cost_threshold = settings["cost_threshold"].as_f64().unwrap_or(-50.0);
 
@@ -80,7 +90,7 @@ impl Config {
             base_links,
             ee_links,
             starting_config,
-            package,
+            package_paths,
             approach_dist,
             cost_threshold,
         }
