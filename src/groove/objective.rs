@@ -13,16 +13,19 @@ use parry3d_f64::{query, shape};
 /// * `c` standard deviation (width of groove)
 /// * `f` penalty
 /// * `g` polynomial degree
+#[inline]
 pub fn groove_loss(x_val: f64, t: f64, d: i32, c: f64, f: f64, g: i32) -> f64 {
     -((-(x_val - t).powi(d)) / (2.0 * c.powi(2))).exp() + f * (x_val - t).powi(g)
 }
 
+#[inline]
 pub fn groove_loss_derivative(x_val: f64, t: f64, d: i32, c: f64, f: f64, g: i32) -> f64 {
     -((-(x_val - t).powi(d)) / (2.0 * c.powi(2))).exp()
         * ((-d as f64 * (x_val - t)) / (2.0 * c.powi(2)))
         + g as f64 * f * (x_val - t).powi(g - 1)
 }
 
+#[inline]
 pub fn swamp_groove_loss(
     x_val: f64,
     g: f64,
@@ -41,12 +44,14 @@ pub fn swamp_groove_loss(
         + f3 * (1.0 - (-(x / b).powi(p1)).exp())
 }
 
+#[inline]
 pub fn swamp_loss(x_val: f64, l_bound: f64, u_bound: f64, f1: f64, f2: f64, p1: i32) -> f64 {
     let x = (2.0 * x_val - l_bound - u_bound) / (u_bound - l_bound);
     let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p1 as f64);
     (f1 + f2 * x.powi(2)) * (1.0 - (-(x / b).powi(p1)).exp()) - 1.0
 }
 
+#[inline]
 pub fn swamp_groove_loss_derivative(
     x_val: f64,
     _g: f64,
@@ -136,6 +141,7 @@ impl EEHorizontal {
     }
 }
 impl ObjectiveTrait for EEHorizontal {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -196,6 +202,7 @@ impl GripperHorizontal {
     }
 }
 impl ObjectiveTrait for GripperHorizontal {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -316,6 +323,7 @@ impl TargetCollision {
     }
 }
 impl ObjectiveTrait for TargetCollision {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -373,6 +381,7 @@ impl Height {
     }
 }
 impl ObjectiveTrait for Height {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -391,9 +400,9 @@ impl ObjectiveTrait for Height {
 
         let t_gc = goal_quat.inverse() * t_gw_t_wc;
         let dist: f64 = t_gc[self.axis];
-        // let bound = 0.1;
-        // swamp_loss(dist, -bound, bound, 2.0, 0.2, 20)
-        groove_loss(dist, 0., 2, 0.3, 10.0, 2)
+        let bound = 0.1;
+        swamp_loss(dist, -bound, bound, 2.0, 0.2, 20)
+        // groove_loss(dist, 0., 2, 0.3, 10.0, 2)
     }
     fn call_lite(
         &self,
@@ -416,6 +425,7 @@ impl MatchEEPosiDoF {
     }
 }
 impl ObjectiveTrait for MatchEEPosiDoF {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -463,6 +473,7 @@ impl MatchEERotaDoF {
     }
 }
 impl ObjectiveTrait for MatchEERotaDoF {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -519,6 +530,7 @@ impl SelfCollision {
     }
 }
 impl ObjectiveTrait for SelfCollision {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -620,6 +632,7 @@ impl ObjectiveTrait for SelfCollision {
 
 pub struct MaximizeManipulability;
 impl ObjectiveTrait for MaximizeManipulability {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -648,6 +661,7 @@ impl EachJointLimits {
     }
 }
 impl ObjectiveTrait for EachJointLimits {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -676,6 +690,7 @@ impl ObjectiveTrait for EachJointLimits {
 
 pub struct MinimizeVelocity;
 impl ObjectiveTrait for MinimizeVelocity {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -707,6 +722,7 @@ impl ObjectiveTrait for MinimizeVelocity {
 
 pub struct MinimizeAcceleration;
 impl ObjectiveTrait for MinimizeAcceleration {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -742,6 +758,7 @@ impl ObjectiveTrait for MinimizeAcceleration {
 
 pub struct MinimizeJerk;
 impl ObjectiveTrait for MinimizeJerk {
+    #[inline]
     fn call(
         &self,
         x: &[f64],
@@ -790,6 +807,7 @@ impl MatchEEPosGoals {
     }
 }
 impl ObjectiveTrait for MatchEEPosGoals {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
@@ -822,6 +840,7 @@ impl MatchEEQuatGoals {
     }
 }
 impl ObjectiveTrait for MatchEEQuatGoals {
+    #[inline]
     fn call(
         &self,
         _x: &[f64],
