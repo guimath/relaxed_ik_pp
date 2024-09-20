@@ -38,6 +38,12 @@ struct Cli {
     /// Scan mode
     #[clap(short, long, default_value_t, value_enum)]
     mode: ScanMode,
+    /// Height at which to scan
+    #[clap(short, long, default_value_t=0.3)]
+    z_target: f64,
+    /// Radius of range of motion (1.1 for UR5, 1.0 for Xarm6) - Any point out of radius will be ignored
+    #[clap(short, long, default_value_t=1.0)]
+    range_max_radius: f64,
 }
 
 fn err_to_color(err: openrr_planner::Error) -> RGBAColor {
@@ -60,16 +66,16 @@ fn err_to_color(err: openrr_planner::Error) -> RGBAColor {
     }
 }
 
+
 fn main() {
     env_logger::init();
     let args = Cli::parse();
 
     const START_X: f64 = -1.3;
     const START_Y: f64 = -1.3;
-    const START_Z: f64 = 0.3;
 
-    const STEP_X: f64 = 0.03;
-    const STEP_Y: f64 = 0.03;
+    const STEP_X: f64 = 0.01;
+    const STEP_Y: f64 = 0.01;
     const MAX_X: f64 = 1.3;
     const MAX_Y: f64 = 1.3;
 
@@ -77,8 +83,8 @@ fn main() {
     const J_MAX: usize = ((MAX_Y - START_Y) / STEP_Y) as usize;
 
     let (avg_time_one_calc, file_name) = match args.mode {
-        ScanMode::IK => (0.9f64, "metric_scan_ik"),
-        ScanMode::Motion => (9.0f64, "metric_scan_motion"),
+        ScanMode::IK => (0.9f64, format!("ik_Z_{:+}", args.z_target)),
+        ScanMode::Motion => (9.0f64, format!("motion_Z_{:+}", args.z_target)),
     };
 
     let est_time = Duration::from_millis(((I_MAX * J_MAX) as f64 * avg_time_one_calc) as u64);
@@ -97,18 +103,19 @@ fn main() {
 
     let _ = fs::create_dir_all(pic_file.parent().unwrap());
     let mut f = File::create(log_file).unwrap();
+    println!("Graph will be saved to {:#?}", pic_file.as_os_str());
 
     // rik init
     let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
-    let mut shapes = rik.planner.obstacles.shapes().to_vec(); //[0].0.translation = [START_X, START_Y, START_Z];
+    let mut shapes = rik.planner.obstacles.shapes().to_vec(); 
 
     // Graph init
     let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
     let root = BitMapBackend::new(pic_file.as_os_str(), (1024, 1024)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let mut chart = ChartBuilder::on(&root)
-        .caption(format!("Z = {START_Z:}"), ("sans-serif", 40))
-        .margin(5)
+        .caption(format!("{folder} - Z = {:}",args.z_target), ("sans-serif", 40))
+        .margin(10)
         .top_x_label_area_size(40)
         .y_label_area_size(60)
         .build_cartesian_2d(0i32..(I_MAX as i32), (J_MAX as i32)..0i32)
@@ -123,8 +130,6 @@ fn main() {
         .max_light_lines(4)
         .x_label_formatter(&|r| format!("{:.2}", START_X + STEP_X * (*r as f64)))
         .y_label_formatter(&|r| format!("{:.2}", START_Y + STEP_Y * (*r as f64)))
-        .x_label_offset(35)
-        .y_label_offset(25)
         .disable_x_mesh()
         .disable_y_mesh()
         .label_style(("sans-serif", 20))
@@ -136,43 +141,83 @@ fn main() {
     let pb2 = m.add(ProgressBar::new(J_MAX as u64));
     let t1 = time::Instant::now();
 
+    let red = RGBColor::from_hex_code("#ff0000").unwrap();
+    let green = RGBColor::from_hex_code("#00ff00").unwrap();
+    let cmap = GradientColorMap::new_linear(green, red);
+    let to_color =  |h| {
+        let color = cmap.transform_single(h);
+        plotters::prelude::RGBColor(color.int_r(), color.int_g(), color.int_b())
+            .to_rgba()
+    };
+
+    let radius_max_square = args.range_max_radius*args.range_max_radius;
     match args.mode {
         ScanMode::IK => {
-            let red = RGBColor::from_hex_code("#ff0000").unwrap();
-            let green = RGBColor::from_hex_code("#00ff00").unwrap();
-            let cmap = GradientColorMap::new_linear(green, red);
+            let min_cost = rik.min_possible_cost;
+            let max_cost = -200.0;
+            let delta_cost = max_cost-min_cost;
             for i in 0..I_MAX {
                 for j in 0..J_MAX {
                     let target = [
                         START_X + i as f64 * STEP_X,
                         START_Y + j as f64 * STEP_Y,
-                        START_Z,
+                        args.z_target,
                     ];
+                    if target[0]*target[0] + target[1]*target[1] > radius_max_square {
+                        continue;
+                    } 
                     rik.reset_origin();
 
-                    let res = rik.solve_ik(target);
+                    let res = rik.repeat_solve_ik(target);
                     matrix[j][i] = match res {
                         Ok(status) => {
-                            let h = (status.cost_value().clamp(-200.0, -50.0) + 200.0) / 150.0;
-                            let color = cmap.transform_single(h);
-                            plotters::prelude::RGBColor(color.int_r(), color.int_g(), color.int_b())
-                                .to_rgba()
+                            let h = (status.cost_value().clamp(min_cost, max_cost) - min_cost) / delta_cost;
+                            to_color(h)
                         }
-                        Err(e) => err_to_color(e),
+                        Err(e) => {
+                            f.write_all(format!("{target:?} \t {e}\n").as_bytes())
+                                .unwrap();
+                            err_to_color(e)
+                        }
                     };
                     pb2.set_position(j as u64);
                 }
                 pb.set_position(i as u64);
+                if i % 10 == 0 {
+                    // real time plotting
+                    chart
+                        .draw_series(
+                            matrix
+                                .iter()
+                                .zip(0..)
+                                .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
+                                .map(|(x, y, color)| {
+                                    Rectangle::new([(x, y), (x + 1, y + 1)], color.filled())
+                                }),
+                        )
+                        .unwrap();
+                    let _ = root.present();
+                }
             }
         }
         ScanMode::Motion => {
+            let min_step = 3;
+            let max_step = 10;
+            let delta_step = max_step-min_step;
             for i in 0..I_MAX {
                 for j in 0..J_MAX {
                     let target = [
                         START_X + i as f64 * STEP_X,
                         START_Y + j as f64 * STEP_Y,
-                        START_Z,
+                        args.z_target,
                     ];
+                    let rad_dist = target[0]*target[0] + target[1]*target[1];
+                    if rad_dist > radius_max_square {
+                        continue;
+                    } 
+                    if rad_dist < 0.2*0.2 {
+                        continue;
+                    }
                     rik.reset_origin();
                     shapes[0].0.translation = Translation3::new(target[0], target[1], target[2]);
                     let compound = Compound::new(shapes.clone());
@@ -180,9 +225,9 @@ fn main() {
                     let grip = rik.grip(target);
                     matrix[j][i] = match grip {
                         Ok((q1, q2, _res)) => {
-                            let h = (150 - (10 * (q1.len() + q2.len() - 1)).clamp(0, 125)) as f64
-                                / 360.0;
-                            HSLColor(h, 0.7, 0.45).to_rgba()
+                            // f.write_all(format!("Success {target:?} {_res:?}\n").as_bytes()).unwrap();
+                            let h = ((q1.len()+q2.len()).clamp(min_step, max_step) - min_step) as f64 / delta_step as f64;
+                            to_color(h)
                         }
                         Err(e) => {
                             f.write_all(format!("{target:?} \t {e}\n").as_bytes())
