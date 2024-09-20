@@ -18,9 +18,9 @@ wrappers/__pycache__/
 # python venv
 .venv/
 
+# local path urdf  
+configs/urdfs/res/
 # output files 
 ex_out/
 examples/cost_configs/*
-!examples/cost_configs/groove.yaml
-!examples/cost_configs/swamp.yaml
-!examples/cost_configs/swamp_groove.yaml
+!examples/cost_configs/example.toml
