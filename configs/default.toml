@@ -1,0 +1,51 @@
+
+approach_dist= 0.05 
+
+## Objectives 
+# These are the default objective configuration, for personalized objectives (specific to a task / robot)
+# add them in your config file, it will overwrite the default
+# To disable any objective, make the weight <= 0 
+
+[objectives.x_pos]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 70
+
+[objectives.y_pos]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 70
+
+[objectives.z_pos]
+func= {Swamp={l_bound= -0.1, u_bound= 0.1, f1= 2.0, f2= 0.2, p1= 20}}
+weight= 70
+
+[objectives.horizontal_arm]
+func= {Groove={t = 0.0, d = 2, c = 0.05, f = 20.0, g = 2}}
+weight= 20
+
+[objectives.horizontal_grip]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 10
+
+[objectives.joint_limits]
+func= {Swamp={l_bound= -0.1, u_bound= 0.1, f1= 10.0, f2= 10.0, p1= 20}}
+weight= 0.1
+
+[objectives.maximize_manipulability]
+func= {Groove={t = 1.0, d = 2, c = 0.9, f = 0.1, g = 2}}
+weight= 4
+
+[objectives.minimize_velocity]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 0.7
+
+[objectives.minimize_acceleration]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 0.5
+
+[objectives.minimize_jerk]
+func= {Groove={t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2}}
+weight= 0.3
+
+[objectives.self_collision]
+func= {Swamp={l_bound= 0.02, u_bound= 1.5, f1= 60.0, f2= 0.0001, p1= 30}}
+weight= 0.01
