@@ -35,7 +35,11 @@ impl RelaxedWrapper {
         let vars = RelaxedIKVars::from_config(config.clone());
         debug!("Robot created");
 
-        let om = ObjectiveMaster::relaxed_ik(&vars.robot.chain_lengths);
+        let om = ObjectiveMaster::relaxed_ik(
+            &vars.robot.chain_lengths, 
+            &vars.robot.lower_joint_limits,
+            &vars.robot.upper_joint_limits,
+            config.objectives.clone());
         debug!("Objectives created");
 
         let groove = OptimizationEngineOpen::new(vars.robot.num_dofs);
