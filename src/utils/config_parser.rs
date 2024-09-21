@@ -1,11 +1,10 @@
-use log::warn;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use serde::Deserialize;
-
+use crate::groove::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
 #[derive(Deserialize, Debug, Clone)]
 pub struct UrdfPath {
     pub robot:PathBuf,
@@ -29,6 +28,16 @@ struct ConfigParse{
     starting_joint_values: Option<Vec<f64>>,
     // additional distance for pre grasp motion. Default = 0.03
     approach_dist: Option<f64>,
+    objectives: Option<ObjectivesConfigParse>
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct DefaultConfigParse{
+    /// List of package name used in urdf files
+    // starting joint values. Default = 0.0 for all
+    // additional distance for pre grasp motion. Default = 0.03
+    approach_dist: f64,
+    objectives: ObjectivesConfig
 }
 
 #[derive(Clone, Debug)]
@@ -38,8 +47,9 @@ pub struct Config{
     pub links: LinksNames,
     pub starting_joint_values: Vec<f64>,
     pub approach_dist: f64,
+    pub objectives: ObjectivesConfig
 }
-
+const DEFAULT_CONF_FILE: &str = "configs/default.toml";
 impl Config {
     pub fn from_settings_file<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
         let mut file = File::open(path_to_setting.clone()).unwrap();
@@ -47,10 +57,18 @@ impl Config {
         let _res = file.read_to_string(&mut contents).unwrap();
         let res: Result<ConfigParse, toml::de::Error> = toml::from_str(&contents);
         if let Err(e) = res {
-            println!("{}", e);
-            panic!();
+            panic!("{}", e);
         } 
         let conf = res.unwrap();
+        contents = String::new();
+        let mut file = File::open(DEFAULT_CONF_FILE).expect("Default config file not found");
+        let _res = file.read_to_string(&mut contents).unwrap();
+        let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(&contents);
+        if let Err(e) = res {
+            panic!("{}", e);
+        } 
+        let default = res.unwrap();
+
         // Defaults : 
         let starting_joints_values = conf.starting_joint_values.unwrap_or(vec![0.0f64; conf.links.used_joints.len()]);
         let mut package_paths: HashMap<String, String> = HashMap::new();
@@ -60,13 +78,39 @@ impl Config {
                 package_paths.insert(package, package_path);
             }
         }
-        let approach_dist = conf.approach_dist.unwrap_or(0.03);
+        let approach_dist = conf.approach_dist.unwrap_or(default.approach_dist);
+        
+        //objectives 
+        let mut objectives = default.objectives;
+        if let Some(new_objectives) = conf.objectives {
+            macro_rules! or_default {
+                ($name:ident) => {{
+                    if let Some(a) =  new_objectives.$name {
+                        objectives.$name = a;
+                    }
+                }};
+            }
+            // TODO add macro to auto iterate
+            or_default!(x_pos);
+            or_default!(y_pos);
+            or_default!(z_pos);
+            or_default!(horizontal_grip);
+            or_default!(horizontal_arm);
+            or_default!(joint_limits);
+            or_default!(minimize_velocity);
+            or_default!(minimize_acceleration);
+            or_default!(minimize_jerk);
+            or_default!(maximize_manipulability);
+            or_default!(self_collision);
+        }
+        
         Self{
             urdf_paths:conf.urdf_paths,
             package_paths: package_paths,
             links: conf.links,
             starting_joint_values: starting_joints_values,
             approach_dist: approach_dist,
+            objectives: objectives
         }
     }
 }
