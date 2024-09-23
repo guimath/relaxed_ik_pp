@@ -55,6 +55,7 @@ fn main() {
         base_line += time::Instant::now() - t1;
     }
     base_line /= loops_to_average;
+    println!("Baseline (no objectives): {:?}", base_line);
 
     rik.om.weight_priors = vec![1.0];
     for obj in objectives {
