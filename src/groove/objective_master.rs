@@ -137,17 +137,6 @@ impl ObjectiveMaster {
             let obj = config.horizontal_grip.clone();
             add_obj!(obj, HorizontalGripper, arm_idx);
         }
-        let obj = config.minimize_velocity;
-        add_obj!(obj, MinimizeVelocity);
-        let obj = config.minimize_acceleration;
-        add_obj!(obj, MinimizeAcceleration);
-        let obj = config.minimize_jerk;
-        add_obj!(obj, MinimizeJerk);
-        let obj = config.maximize_manipulability;
-        add_obj!(obj, MaximizeManipulability);
-
-        // TODO add swamp only struct for better error handling
-        
         let SwampType::Swamp(mut params) = config.joint_limits.func;
         let weight = config.joint_limits.weight;
         for joint_idx in 0..num_dof {
@@ -164,6 +153,15 @@ impl ObjectiveMaster {
             };
             add_obj!(obj, EachJointLimits, joint_idx);
         }
+
+        let obj = config.minimize_velocity;
+        add_obj!(obj, MinimizeVelocity);
+        let obj = config.minimize_acceleration;
+        add_obj!(obj, MinimizeAcceleration);
+        let obj = config.minimize_jerk;
+        add_obj!(obj, MinimizeJerk);
+        let obj = config.maximize_manipulability;
+        add_obj!(obj, MaximizeManipulability);
 
         let obj = config.self_collision;
         for arm_idx in 0..num_chains {
@@ -183,7 +181,7 @@ impl ObjectiveMaster {
             num_chains,
             weight_priors,
             lite: false,
-            finite_diff_grad: false,
+            finite_diff_grad: true,
         }
     }
 

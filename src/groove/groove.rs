@@ -20,13 +20,13 @@ impl OptimizationEngineOpen {
         om: &ObjectiveMaster,
         max_iter: usize,
     ) -> Result<SolverStatus, SolverError> {
-        let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
+        let df = move |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
             let (_, my_grad) = om.gradient(u, v);
             grad[..my_grad.len()].copy_from_slice(&my_grad[..]);
             Ok(())
         };
 
-        let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
+        let f = move |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
             *c = om.call(u, v);
             Ok(())
         };
@@ -49,5 +49,8 @@ impl OptimizationEngineOpen {
         // println!("Panoc status: {:#?}", status);
         // println!("Panoc solution: {:#?}", x);
     }
+
+
+    
 }
 
