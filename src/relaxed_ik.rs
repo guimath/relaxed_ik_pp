@@ -38,7 +38,7 @@ impl RelaxedIK {
             config.objectives.clone());
             log::debug!("Objectives created");
 
-        let groove = OptimizationEngineOpen::new(vars.robot.num_dofs);
+        let groove = OptimizationEngineOpen::new(vars.robot.num_dof);
         log::debug!("Optimizer created");
         let init_q = vars.init_state.clone();
         let planner = Planner::from_config(config.clone());

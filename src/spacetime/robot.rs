@@ -1,158 +1,51 @@
-use crate::spacetime::arm;
+use crate::spacetime::arm::RevoluteArm;
 use nalgebra;
 use urdf_rs;
 
 #[derive(Clone, Debug)]
 pub struct Robot {
-    pub arms: Vec<arm::RevoluteArm>,
+    pub arms: Vec<RevoluteArm>,
     pub num_chains: usize,
-    pub num_dofs: usize,
+    pub num_dof: usize,
     pub chain_lengths: Vec<usize>,
-    pub lower_joint_limits: Vec<f64>,
     pub upper_joint_limits: Vec<f64>,
+    pub lower_joint_limits: Vec<f64>,
 }
 
 
 impl Robot {
-
-    // pub fn from_urdf2(urdf: &str, base_links: &[String], ee_links: &[String]) -> Self {
-    //     let description: urdf_rs::Robot = urdf_rs::read_from_string(urdf).unwrap();
-    //     let chain: k::Chain<f64> = k::Chain::from(description.clone());
-    //     let mut arms: Vec<arm::Arm> = Vec::new();
-    //     let num_chains = base_links.len();
-    //     let mut chain_lengths = Vec::new();
-    //     let mut num_dofs = 0;
-    //     let lower_joint_limits = Vec::new();
-    //     let upper_joint_limits = Vec::new();
-    //     for i in 0..num_chains {
-    //         let base_link = chain.find_link(base_links[i].as_str()).unwrap();
-    //         let ee_link = chain.find_link(ee_links[i].as_str()).unwrap();
-    //         let serial_chain = k::SerialChain::from_end_to_root(ee_link, base_link);
-
-    //         let arm: arm::Arm = arm::Arm::from_chain(serial_chain);
-    //         arms.push(arm);
-    //         chain_lengths.push(arm.axis_types.len());
-    //         num_dofs += arm.axis_types.len();
-    //     }
-    //     Robot {
-    //         arms,
-    //         num_chains,
-    //         chain_lengths,
-    //         num_dofs,
-    //         lower_joint_limits,
-    //         upper_joint_limits,
-    //     }
-    // }
-
 
     pub fn from_urdf(urdf: &str, base_links: &[String], ee_links: &[String]) -> Self {
         // let chain = k::Chain::<f64>::from_urdf_file(urdf).unwrap();
         let description: urdf_rs::Robot = urdf_rs::read_from_string(urdf).unwrap();
         let chain: k::Chain<f64> = k::Chain::from(description.clone());
 
-        let mut arms: Vec<arm::RevoluteArm> = Vec::new();
+        let mut arms: Vec<RevoluteArm> = Vec::new();
         let num_chains = base_links.len();
-        let mut chain_lengths = Vec::new();
-        let mut num_dofs = 0;
+        let mut num_dof = 0;
+        let mut chain_lengths: Vec<usize> = Vec::new();
+        let mut upper_joint_limits: Vec<f64> = Vec::new();
+        let mut lower_joint_limits: Vec<f64> = Vec::new();
 
-        let mut lower_joint_limits = Vec::new();
-        let mut upper_joint_limits = Vec::new();
-        
         for i in 0..num_chains {
             let base_link = chain.find_link(base_links[i].as_str()).unwrap();
             let ee_link = chain.find_link(ee_links[i].as_str()).unwrap();
-            
             let serial_chain = k::SerialChain::from_end_to_root(ee_link, base_link);
-
-            let mut axis_types: Vec<String> = Vec::new();
-            let mut joint_types: Vec<String> = Vec::new();
-            let mut displacements = Vec::new();
-            let mut rot_offsets = Vec::new();
-
-            let mut first_link: bool = true;
-            serial_chain.iter().for_each(|node| {
-                let joint = node.joint();
-                if first_link {
-                    first_link = false;
-                    return;
-                } else {
-                    match joint.joint_type {
-                        k::JointType::Fixed => {
-                            joint_types.push("fixed".to_string());
-                        }
-                        k::JointType::Rotational { axis } => {
-                            if axis[0] == 1.0 {
-                                axis_types.push("x".to_string());
-                            } else if axis[1] == 1.0 {
-                                axis_types.push("y".to_string());
-                            } else if axis[2] == 1.0 {
-                                axis_types.push("z".to_string());
-                            } else if axis[0] == -1.0 {
-                                axis_types.push("-x".to_string());
-                            } else if axis[1] == -1.0 {
-                                axis_types.push("-y".to_string());
-                            } else if axis[2] == -1.0 {
-                                axis_types.push("-z".to_string());
-                            }
-                            if joint.limits.is_none() {
-                                joint_types.push("continuous".to_string());
-                                lower_joint_limits.push(-999.0);
-                                upper_joint_limits.push(999.0);
-                            } else {
-                                joint_types.push("revolute".to_string());
-                                lower_joint_limits.push(joint.limits.unwrap().min);
-                                upper_joint_limits.push(joint.limits.unwrap().max);
-                            }
-                        }
-                        k::JointType::Linear { axis } => {
-                            if axis[0] == 1.0 {
-                                axis_types.push("x".to_string());
-                            } else if axis[1] == 1.0 {
-                                axis_types.push("y".to_string());
-                            } else if axis[2] == 1.0 {
-                                axis_types.push("z".to_string());
-                            } else if axis[0] == -1.0 {
-                                axis_types.push("-x".to_string());
-                            } else if axis[1] == -1.0 {
-                                axis_types.push("-y".to_string());
-                            } else if axis[2] == -1.0 {
-                                axis_types.push("-z".to_string());
-                            }
-                            joint_types.push("prismatic".to_string());
-                            lower_joint_limits.push(joint.limits.unwrap().min);
-                            upper_joint_limits.push(joint.limits.unwrap().max);
-                        }
-                    }
-                }
-
-                displacements.push(joint.origin().translation.vector);
-                rot_offsets.push(joint.origin().rotation);
-            });
-            let arm: arm::RevoluteArm = arm::RevoluteArm::from_chain(k::SerialChain::from_end_to_root(ee_link, base_link));
-            let arm2: arm::Arm = arm::Arm::init(
-                axis_types.clone(),
-                displacements.clone(),
-                rot_offsets.clone(),
-                joint_types.clone(),
-            );
-            let r1 = arm.get_jacobian_immutable(&[0.0, -1.2, -0.15, 0.1, -0.1, 1.57]);
-            let r2 = arm2.get_jacobian_immutable(&[0.0, -1.2, -0.15, 0.1, -0.1, 1.57]);
-            
-            println!("{:}", r1);
-            println!("---------------------------");
-            println!("{:}", r2);
+            let arm= RevoluteArm::from_chain(serial_chain);
+            num_dof += arm.num_dof;
+            chain_lengths.push(arm.num_dof);
+            upper_joint_limits.extend(arm.upper_joint_limits.clone());
+            lower_joint_limits.extend(arm.lower_joint_limits.clone());
             arms.push(arm);
-            chain_lengths.push(axis_types.len());
-            num_dofs += axis_types.len();
         }
 
         Robot {
             arms,
             num_chains,
+            num_dof,
             chain_lengths,
-            num_dofs,
-            lower_joint_limits,
             upper_joint_limits,
+            lower_joint_limits
         }
     }
 
