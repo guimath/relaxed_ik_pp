@@ -28,6 +28,7 @@ fn main() {
     // let conf = Config::from_settings_file(args.settings.clone());
     // rik init
     let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
+    let rik2 = RelaxedIK::new(args.settings.to_str().unwrap());
     let objectives = rik.om.objectives;
     const TRY_NUM:i32 = NUM_PER_JOINT.pow(6);
     let call_per_ik :f64 = TRY_NUM as f64 / 67600.0 ;
@@ -55,15 +56,28 @@ fn main() {
         base_line += time::Instant::now() - t1;
     }
     base_line /= loops_to_average;
-    println!("Baseline (no objectives): {:?}", base_line);
+    println!("Global ; No baseline");
+    println!("{:} ; 0", base_line.as_millis());
 
     rik.om.weight_priors = vec![1.0];
+    let mut i = objectives.len()-8;
     for obj in objectives {
         rik.om.objectives = vec![obj];
         let t1 = time::Instant::now();
         scan_space_rec!(0,1,2,3,4,5);
         let elapsed = time::Instant::now() - t1;
-        println!("{:?}", elapsed.clamp(base_line, time::Duration::from_secs(2000))-base_line);
-
+        let sep = elapsed.clamp(base_line, time::Duration::from_secs(2000))-base_line;
+        println!("{:} ; {:}", elapsed.as_millis(), sep.as_millis());
+        i -= 1;
+        if i == 0 {break}
     }
+
+    rik.om.objectives = rik2.om.objectives;
+    rik.om.weight_priors = rik2.om.weight_priors;
+    let t1 = time::Instant::now();
+    scan_space_rec!(0,1,2,3,4,5);
+    let elapsed = time::Instant::now() - t1;
+    let sep = elapsed.clamp(base_line, time::Duration::from_secs(2000))-base_line;
+    println!("{:} ; {:}", elapsed.as_millis(), sep.as_millis());
+
 }
