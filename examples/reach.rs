@@ -87,7 +87,7 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
         rik.reset_origin();
     }
     if with_approach_dist {
-        rik.vars.robot.arms[0].displacements[rik.last_joint_num][2] =
+        rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] =
             rik.gripper_length + rik.config.approach_dist;
     }
     let _res = rik.repeat_solve_ik(target); //x: -0.0012 y: -0.1129 z:0.0596
@@ -99,7 +99,8 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
     //     target[1] - pos[1],
     //     target[2] - pos[2]
     // );
-    rik.vars.robot.arms[0].displacements[rik.last_joint_num][2] = rik.gripper_length;
+    println!("status ;  {:?}", _res);
+    rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] = rik.gripper_length;
     rik.vars.xopt.clone()
 }
 fn main() {

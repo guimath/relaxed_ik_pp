@@ -46,8 +46,8 @@ impl RelaxedIK {
         let pos_goals = [0.6f64, -0.5, 0.3];
         let quat_goals = [0.707f64, 0.0, 0.707, 0.0];
         let tolerances = [0.0f64; 6];
-        let last_joint_num = vars.robot.arms[0].displacements.len() - 1;
-        let gripper_length = vars.robot.arms[0].displacements[last_joint_num][2];
+        let last_joint_num = vars.robot.arms[0].num_dof;
+        let gripper_length = vars.robot.arms[0].lin_offsets[last_joint_num][2];
         let min_possible_cost: f64 = - om.weight_priors.iter().sum::<f64>();
         let mut a = Self {
             config,
@@ -79,7 +79,7 @@ impl RelaxedIK {
         pos_goals: [f64; 3],
     ) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>, SolverStatus), openrr_planner::Error> {
         let res = self._grip(pos_goals);
-        self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length; // in case first ik unsuccessful
+        self.vars.robot.arms[0].lin_offsets[self.last_joint_num][2] = self.gripper_length; // in case first ik unsuccessful
         res
     }
 
@@ -89,11 +89,11 @@ impl RelaxedIK {
         pos_goals: [f64; 3],
     ) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>, SolverStatus), openrr_planner::Error> {
         let x_start = self.vars.xopt.clone();
-        self.vars.robot.arms[0].displacements[self.last_joint_num][2] =
+        self.vars.robot.arms[0].lin_offsets[self.last_joint_num][2] =
             self.gripper_length + self.config.approach_dist;
         let _res1 = self.repeat_solve_ik(pos_goals)?;
         let x_inter = self.vars.xopt.clone();
-        self.vars.robot.arms[0].displacements[self.last_joint_num][2] = self.gripper_length;
+        self.vars.robot.arms[0].lin_offsets[self.last_joint_num][2] = self.gripper_length;
         let res = self.repeat_solve_ik(pos_goals)?;
         let x_goal = self.vars.xopt.clone();
 

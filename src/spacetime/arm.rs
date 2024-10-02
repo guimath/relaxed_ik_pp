@@ -1,5 +1,194 @@
 use nalgebra;
-use nalgebra::{DMatrix, UnitQuaternion, Vector3, Vector6};
+use nalgebra::{DMatrix, Unit, UnitQuaternion, Vector3, Vector6};
+
+#[derive(Clone, Debug)]
+pub struct RevoluteArm {
+    pub num_dof: usize,
+    // fixed linear displacements between joints
+    pub lin_offsets: Vec<Vector3<f64>>,
+    // fixed rotational displacements between joints
+    pub rot_offsets: Vec<UnitQuaternion<f64>>,
+    is_rot_offset_null: Vec<bool>,
+    // Axis of joint
+    joint_axis: Vec<Unit<Vector3<f64>>>,
+
+    pub upper_joint_limits: Vec<f64>,
+    pub lower_joint_limits: Vec<f64>,
+    get_quat: Vec<fn(f64) -> UnitQuaternion<f64>>,
+}
+impl RevoluteArm {
+    pub fn from_chain(
+        chain: k::SerialChain<f64>,
+    ) -> RevoluteArm {
+        let mut num_dof = 0;
+        let mut get_quat: Vec<fn(f64) -> UnitQuaternion<f64>> = Vec::new();
+        let mut lin_offsets: Vec<Vector3<f64>> = Vec::new();
+        let mut rot_offsets: Vec<UnitQuaternion<f64>> = Vec::new();
+        let mut upper_joint_limits: Vec<f64> = Vec::new();
+        let mut lower_joint_limits: Vec<f64> = Vec::new();
+        let mut joint_axis: Vec<Unit<Vector3<f64>>> = Vec::new();
+        
+        let mut first_link = true;
+        let mut add_to_next = false;
+        let mut rot_add: UnitQuaternion<f64> = UnitQuaternion::identity();
+        let mut lin_add: Vector3<f64> = Vector3::zeros();
+        chain.iter().for_each(|node| {
+            let joint = node.joint();
+            if first_link {
+                first_link = false;
+                return;
+            } 
+            match joint.joint_type {
+                k::JointType::Fixed => {
+                    let org = joint.origin();
+                    if add_to_next {
+                        rot_add *= org.rotation;
+                        lin_add += org.translation.vector;
+                    }
+                    else {
+                        rot_add = org.rotation;
+                        lin_add = org.translation.vector;
+                    }
+                    add_to_next = true;
+                }
+                k::JointType::Rotational { axis } => {
+                    num_dof +=1;
+                    joint_axis.push(axis);
+                    if *axis == *Vector3::x_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(val, 0., 0.))
+                    } else if *axis == *Vector3::y_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., val, 0.))
+                    } else if *axis == *Vector3::z_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., 0., val))
+                    } else if *axis == -*Vector3::x_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(-val, 0., 0.))
+                    } else if *axis == -*Vector3::y_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., -val, 0.))
+                    } else if *axis == -*Vector3::z_axis() {
+                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., 0., -val))
+                    } else {
+                        panic!("Axis not recognized")
+                    }
+                   
+                    if joint.limits.is_none() {
+                        lower_joint_limits.push(-999.0);
+                        upper_joint_limits.push(999.0);
+                    } else {
+                        lower_joint_limits.push(joint.limits.unwrap().min);
+                        upper_joint_limits.push(joint.limits.unwrap().max);
+                    }
+                    let org = joint.origin();
+                    lin_offsets.push(org.translation.vector);
+                    rot_offsets.push(org.rotation);
+                    if add_to_next {
+                        lin_offsets[num_dof-1] = lin_add + lin_offsets[num_dof-1];
+                        rot_offsets[num_dof-1] = rot_add * rot_offsets[num_dof-1];
+                    }
+                    add_to_next = false;
+                }
+                k::JointType::Linear { axis: _ } => {
+                    panic!("Linear/prismatic joints not supported in simplified version");
+                }
+            }
+        });
+
+        // adding EE offsets (even if none)
+        if add_to_next {
+            lin_offsets.push(lin_add);
+            rot_offsets.push(rot_add);
+        }
+        else {
+            lin_offsets.push(Vector3::zeros());
+            rot_offsets.push(UnitQuaternion::identity())
+        }
+
+
+        let mut is_rot_offset_null: Vec<bool> = Vec::new();
+        for i in 0..num_dof+1 {
+            let r = rot_offsets[i];
+            is_rot_offset_null.push(r[0] == 0.0 && r[1] == 0.0 && r[2] == 0.0)
+        } 
+        RevoluteArm{
+            num_dof,
+            lin_offsets,
+            rot_offsets,
+            is_rot_offset_null,
+            joint_axis,
+            upper_joint_limits,
+            lower_joint_limits,
+            get_quat
+        }
+    }
+
+    pub fn get_frames_immutable(
+        &self,
+        x: &[f64],
+    ) -> (
+        Vec<Vector3<f64>>,
+        Vec<UnitQuaternion<f64>>,
+    ) {
+        let mut out_positions: Vec<Vector3<f64>> = Vec::new();
+        let mut out_rot_quats: Vec<UnitQuaternion<f64>> = Vec::new();
+
+        let mut pt: Vector3<f64> = Vector3::zeros();
+        let mut rot_quat: UnitQuaternion<f64> = UnitQuaternion::identity();
+
+        out_positions.push(pt);
+        out_rot_quats.push(rot_quat);
+
+        for i in 0..self.num_dof {
+            pt = rot_quat * self.lin_offsets[i] + pt;
+            if !self.is_rot_offset_null[i] {
+                rot_quat *= self.rot_offsets[i];
+            }
+            rot_quat *= self.get_quat[i](x[i]);
+            out_positions.push(pt);
+            out_rot_quats.push(rot_quat);
+
+        }
+
+        //adding EE pose
+        out_positions.push(rot_quat*self.lin_offsets[self.num_dof] +pt);
+        out_rot_quats.push(rot_quat*self.rot_offsets[self.num_dof]);
+
+        (out_positions, out_rot_quats)
+    }
+    
+    pub fn get_jacobian_immutable(&self, x: &[f64]) -> DMatrix<f64> {
+        let (joint_positions, joint_rot_quats) = self.get_frames_immutable(x);
+        let ee_position = joint_positions[joint_positions.len() - 1];
+        
+        let mut jacobian: DMatrix<f64> = DMatrix::identity(6, x.len());
+        
+        for i in 0..self.num_dof {
+            
+            let disp = ee_position - joint_positions[i+1];
+            let p_axis = joint_rot_quats[i+1] * self.joint_axis[i];
+            let linear = p_axis.cross(&disp);
+            jacobian.set_column(
+                i,
+                &Vector6::new(linear.x, linear.y, linear.z, p_axis.x, p_axis.y, p_axis.z),
+            );
+        }
+        jacobian
+    }
+
+    pub fn get_manipulability_immutable(&self, x: &[f64]) -> f64 {
+        let jacobian = self.get_jacobian_immutable(x);
+        (jacobian.clone() * jacobian.transpose())
+            .determinant()
+            .sqrt()
+    }
+
+    pub fn get_ee_pos_and_quat_immutable(
+        &self,
+        x: &[f64],
+    ) -> (Vector3<f64>, UnitQuaternion<f64>) {
+        let (joint_positions, joint_rot_quats) = self.get_frames_immutable(x);
+        (joint_positions[self.num_dof], joint_rot_quats[self.num_dof])
+    }
+
+}
 
 #[derive(Clone, Debug)]
 pub struct Arm {
