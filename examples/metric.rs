@@ -2,7 +2,7 @@ use clap::Parser;
 use nalgebra::Translation3;
 use ncollide3d::shape::Compound;
 use plotters::prelude::*;
-use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
+use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
@@ -106,7 +106,7 @@ fn main() {
     println!("Graph will be saved to {:#?}", pic_file.as_os_str());
 
     // rik init
-    let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
+    let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
     let mut shapes = rik.planner.obstacles.shapes().to_vec(); 
 
     // Graph init

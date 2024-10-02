@@ -1,7 +1,7 @@
 from typing import List
 
 
-class RelaxedWrapper:
+class RelaxedIK:
     """
     A class representing relaxedIK solver.
 

@@ -1,5 +1,5 @@
 pub mod groove;
 pub mod motion;
-pub mod relaxed_ik_wrapper;
+pub mod relaxed_ik;
 pub mod spacetime;
 pub mod utils;

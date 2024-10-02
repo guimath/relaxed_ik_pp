@@ -1,6 +1,6 @@
 use clap::Parser;
 use nalgebra::{Point2, Point3};
-use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
+use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use relaxed_ik_lib::utils::config_parser::Config;
 use serde::Serialize;
 use std::{convert::TryInto, path::PathBuf, sync::Arc, fs};
@@ -63,7 +63,7 @@ p:  motion compute from current pose
 
 
 
-fn get_motion(rik: &mut RelaxedWrapper, target:[f64 ; 3], duration:f64) -> Result<Vec<Vec<f64>>, openrr_planner::Error>{
+fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec<Vec<f64>>, openrr_planner::Error>{
     let (mut q1, mut q2, _) = rik.grip(target)?;
     q1.reverse();
     q2.reverse();
@@ -82,7 +82,7 @@ fn get_motion(rik: &mut RelaxedWrapper, target:[f64 ; 3], duration:f64) -> Resul
     Ok(grip_plan2)
 }
 
-fn get_ik(rik: &mut RelaxedWrapper, target:[f64 ; 3], with_reset:bool, with_approach_dist:bool)-> Vec<f64> {
+fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_dist:bool)-> Vec<f64> {
     if with_reset {
         rik.reset_origin();
     }
@@ -109,7 +109,7 @@ fn main() {
     // let settings = args.settings.unwrap_or(PathBuf::from("configs/ur5_grip.yaml"));
     let conf = Config::from_settings_file(args.settings.clone());
     // rik init
-    let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
+    let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
     // urdf viz
     let (mut viewer, mut window) = Viewer::new("Example of grip");
     let mut cam = viewer.arc_ball.clone();

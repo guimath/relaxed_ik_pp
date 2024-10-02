@@ -1,5 +1,5 @@
 use clap::Parser;
-use relaxed_ik_lib::relaxed_ik_wrapper::RelaxedWrapper;
+use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use std::{path::PathBuf, time};
 
 /// args
@@ -27,7 +27,7 @@ fn main() {
     let args = Cli::parse();
     // let conf = Config::from_settings_file(args.settings.clone());
     // rik init
-    let mut rik = RelaxedWrapper::new(args.settings.to_str().unwrap());
+    let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
     let objectives = rik.om.objectives;
     const TRY_NUM:i32 = NUM_PER_JOINT.pow(6);
     let call_per_ik :f64 = TRY_NUM as f64 / 67600.0 ;
@@ -38,7 +38,7 @@ fn main() {
     rik.om.weight_priors = vec![];
     macro_rules! scan_space_rec {
         () => ({
-            rik.om.call(&x, &rik.vars);
+            rik.om.gradient(&x, &rik.vars);
         });
         ($current:expr $(, $next:expr)*) => ({
             for x0 in 0..NUM_PER_JOINT {
