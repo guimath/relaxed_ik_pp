@@ -134,7 +134,6 @@ impl RelaxedIK {
             self.vars.goal_positions[i] =
                 Vector3::new(pos_goals[3 * i], pos_goals[3 * i + 1], pos_goals[3 * i + 2]);
         }
-        self._first_step_ik();
 
         for i in 0..(MAX_IK_ITER-1) {
             match self._optimize_ik(){
@@ -179,10 +178,4 @@ impl RelaxedIK {
         }
     }
 
-    fn _first_step_ik (&mut self) {
-        let mut out_x = self.vars.xopt.clone();
-        if self.groove.optimize_select(&mut out_x, &self.vars, &self.om, 200).is_ok() {
-            self.vars.update(out_x.clone());
-        }
-    }
 }
