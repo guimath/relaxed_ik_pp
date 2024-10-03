@@ -63,19 +63,11 @@ pub struct ObjectivesConfig {
 /// box_in!(obj.func, MinimizeVelocity)
 /// ```
 macro_rules! box_in {
-    ($func:expr, $obj_struct:ident) => {{
-        let bx : Box<dyn ObjectiveTrait + Send> = match $func {
-            FuncType::Swamp(p)       => {let loss_fn = move |x| loss::swamp_loss(x, p);        Box::new($obj_struct{loss_fn})},
-            FuncType::SwampGroove(p) => {let loss_fn = move |x| loss::swamp_groove_loss(x, p); Box::new($obj_struct{loss_fn})},
-            FuncType::Groove(p)      => {let loss_fn = move |x| loss::groove_loss(x, p);       Box::new($obj_struct{loss_fn})},
-        };
-        bx
-    }};
     ($func:expr, $obj_struct:ident $(, $params:tt)*) => {{
         let bx : Box<dyn ObjectiveTrait + Send> = match $func {
-            FuncType::Swamp(p)       => {let loss_fn = move |x| loss::swamp_loss(x, p);        Box::new($obj_struct{$( $params ),*, loss_fn})},
-            FuncType::SwampGroove(p) => {let loss_fn = move |x| loss::swamp_groove_loss(x, p); Box::new($obj_struct{$( $params ),*, loss_fn})},
-            FuncType::Groove(p)      => {let loss_fn = move |x| loss::groove_loss(x, p);       Box::new($obj_struct{$( $params ),*, loss_fn})},
+            FuncType::Swamp(p)       => {let loss_fn = move |x| loss::swamp_loss(x, p);        Box::new($obj_struct{$($params,)* loss_fn})},
+            FuncType::SwampGroove(p) => {let loss_fn = move |x| loss::swamp_groove_loss(x, p); Box::new($obj_struct{$($params,)* loss_fn})},
+            FuncType::Groove(p)      => {let loss_fn = move |x| loss::groove_loss(x, p);       Box::new($obj_struct{$($params,)* loss_fn})},
         };
         bx
     }};
@@ -103,16 +95,9 @@ impl ObjectiveMaster {
 
         /// helper macro to add an objective to objectives vec and weight
         macro_rules! add_obj {
-            ($obj:expr, $obj_struct:ident) => {{
-                if $obj.weight > 0.0 {
-                    objectives.push(box_in!($obj.func, $obj_struct));
-                    weight_priors.push($obj.weight);
-                    recap += format!("{:20} - {:?} - {:?}\n", stringify!($obj_struct), $obj.weight, $obj.func).as_str();
-                }
-            }};
             ($obj:expr, $obj_struct:ident $(, $params:tt)*) => {{
                 if $obj.weight > 0.0 {
-                    objectives.push(box_in!($obj.func, $obj_struct, $( $params ),*));
+                    objectives.push(box_in!($obj.func, $obj_struct $(, $params )*));
                     weight_priors.push($obj.weight);
                     recap += format!("{:20} - {:?} - {:?}\n", stringify!($obj_struct), $obj.weight, $obj.func).as_str();
                 }
