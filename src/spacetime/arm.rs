@@ -154,6 +154,37 @@ impl RevoluteArm {
         (out_positions, out_rot_quats)
     }
     
+    pub fn get_partial_frames_immutable(
+        &self,
+        x: &[f64],
+        mut out_positions: Vec<Vector3<f64>>,
+        mut out_rot_quats: Vec<UnitQuaternion<f64>>,
+        start:usize
+
+    ) -> (
+        Vec<Vector3<f64>>,
+        Vec<UnitQuaternion<f64>>,
+    ) {
+        let mut pt: Vector3<f64> = out_positions[start];
+        let mut rot_quat: UnitQuaternion<f64> = out_rot_quats[start];
+
+        for i in start..self.num_dof {
+            pt = rot_quat * self.lin_offsets[i] + pt;
+            if !self.is_rot_offset_null[i] {
+                rot_quat *= self.rot_offsets[i];
+            }
+            rot_quat *= self.get_quat[i](x[i]);
+            out_positions[i+1] = pt;
+            out_rot_quats[i+1] = rot_quat;
+        }
+
+        //adding EE pose
+        out_positions[self.num_dof+1] = rot_quat*self.lin_offsets[self.num_dof] +pt;
+        out_rot_quats[self.num_dof+1] = rot_quat*self.rot_offsets[self.num_dof];
+
+        (out_positions, out_rot_quats)
+    }
+    
     pub fn get_jacobian_immutable(&self, x: &[f64]) -> DMatrix<f64> {
         let (joint_positions, joint_rot_quats) = self.get_frames_immutable(x);
         let ee_position = joint_positions[joint_positions.len() - 1];
