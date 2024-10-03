@@ -1,9 +1,9 @@
 use crate::groove::loss::{self, FuncType, SwampType};
 use crate::groove::objective::*;
 use crate::groove::vars::RelaxedIKVars;
+use nalgebra::{UnitQuaternion, Vector3};
 use serde::Deserialize;
 use std::fmt::Debug;
-
 
 /// User configurable part of an objective (loss function & weight)
 #[derive(Deserialize, Debug, Clone)]
@@ -210,7 +210,8 @@ impl ObjectiveMaster {
                 self.__gradient_lite(x, vars)
             }
         } else if self.finite_diff_grad {
-            self.__gradient_finite_diff(x, vars)
+            self.optimized_grad(x, vars)
+            // self.__gradient_finite_diff(x, vars)
         } else {
             self.__gradient(x, vars)
         }
@@ -329,6 +330,33 @@ impl ObjectiveMaster {
             grad[i] = (-f_0 + f_h) / 0.000001;
         }
 
+        (f_0, grad)
+    }
+
+    /// Calculating only partial frames to improve efficiency
+    fn optimized_grad(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+        // TODO implement multi arm 
+        let mut grad: Vec<f64> = vec![0.; x.len()];
+        let (frame_pos, frame_rot) = vars.robot.arms[0].get_frames_immutable(x);
+        let frame_org: Vec<(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)> =
+            vec![(frame_pos.clone(), frame_rot.clone())];
+        let mut f_0 = 0.0;
+        for i in 0..self.objectives.len() {
+            f_0 += self.weight_priors[i] * self.objectives[i].call(x, vars, &frame_org);
+        }
+
+        for i in 0..x.len() {
+            let mut x_h = x.to_vec();
+            x_h[i] += 0.000001;
+            let gard_frame: (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) = vars.robot.arms[0]
+                .get_partial_frames_immutable(&x_h, frame_pos.clone(), frame_rot.clone(), i);
+            let frame_org = vec![gard_frame];
+            let mut f_h = 0.0;
+            for j in 0..self.objectives.len() {
+                f_h += self.weight_priors[j] * self.objectives[j].call(&x_h, vars, &frame_org);
+            }
+            grad[i] = (-f_0 + f_h) / 0.000001;
+        }
         (f_0, grad)
     }
 
