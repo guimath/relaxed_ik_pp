@@ -82,7 +82,7 @@ fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec
     Ok(grip_plan2)
 }
 
-fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_dist:bool)-> Vec<f64> {
+fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_dist:bool, cost:&mut f64)-> Vec<f64> {
     if with_reset {
         rik.reset_origin();
     }
@@ -91,7 +91,6 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
             rik.gripper_length + rik.config.approach_dist;
     }
     let _res = rik.repeat_solve_ik(target); //x: -0.0012 y: -0.1129 z:0.0596
-    // println!(" {res:?}");
     // let (pos, _quat) = rik.get_ee_pos();
     // println!(
     //     "x: {:.4} y: {:.4} z:{:.4}",
@@ -99,10 +98,15 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
     //     target[1] - pos[1],
     //     target[2] - pos[2]
     // );
-    println!("status ;  {:?}", _res);
+    // println!("status ;  {:?}", _res);
+    if _res.is_ok() {
+        *cost = _res.unwrap().cost_value()
+    }
+    else {*cost= 1000.0;} 
     rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] = rik.gripper_length;
     rik.vars.xopt.clone()
 }
+
 fn main() {
     env_logger::init();
     let args = Cli::parse();
@@ -196,7 +200,7 @@ fn main() {
             // target increment
             let mut incr = 0.1;
 
-
+            let mut last_cost = 0.0;
             let mut cur_target = [-100.0f64; 3];
             let mut next_target = target;
             let mut plans: Vec<Vec<f64>> = Vec::new();
@@ -206,7 +210,7 @@ fn main() {
                 if cur_target != next_target {
                     // changed target
                     if live_compute {
-                        plans.push(get_ik(&mut rik,next_target, with_reset, with_approach_dist));
+                        plans.push(get_ik(&mut rik,next_target, with_reset, with_approach_dist, &mut last_cost));
                         cur_target = next_target;
                     }
                     // moving obstacle
@@ -236,7 +240,6 @@ fn main() {
                         HOW_TO_USE_IK_STR.to_string() +
                         format!("t: live compute ({lc_status})\nw: reset between ik ({reset_status})\ng: pre-grasp ik ({pre_grasp_status})\nm: menu (on)").as_str();
 
-                    let info_pose = Point2::new(window.width() as f32 * 2.0 - 600.0, 10.0);
                     viewer.draw_text(
                         &mut window,
                         how_to_use.as_str(),
@@ -244,9 +247,10 @@ fn main() {
                         &menu_pose,
                         &menu_color,
                     );
+                    let info_pose = Point2::new(window.width() as f32 * 2.0 - 600.0, 10.0);
                     viewer.draw_text(
                         &mut window,
-                        format!("target : {:.3} {:.3} {:.3}\nDelta : {:.3} {:.3} {:.3}",
+                        format!("Target: {:.3} {:.3} {:.3}\nDelta: {:.3} {:.3} {:.3}\nCost: {last_cost:.3}",
                             next_target[0], next_target[1], next_target[2],
                             last_gripper_pose[0] - next_target[0], last_gripper_pose[1] - next_target[1], last_gripper_pose[2] - next_target[2],
                         )
@@ -267,7 +271,9 @@ fn main() {
                             Key::H => next_target[2] += incr,
                             Key::L => next_target[2] -= incr,
                             Key::Add => incr += incr / 10.0,
+                            Key::Equals => incr += incr / 10.0,
                             Key::Subtract => incr -= incr / 10.0,
+                            Key::Minus => incr -= incr / 10.0,
                             Key::P => {
                                 match get_motion(&mut rik,next_target, args.duration) {
                                     Ok(plan) => {
@@ -279,7 +285,7 @@ fn main() {
                                 
                             }
                             Key::C => {
-                                plans.push(get_ik(&mut rik,next_target, false, with_approach_dist));
+                                plans.push(get_ik(&mut rik,next_target, false, with_approach_dist, &mut last_cost));
                                 cur_target = next_target;
                             }
                             Key::R => {
