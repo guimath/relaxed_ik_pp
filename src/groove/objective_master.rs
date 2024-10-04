@@ -12,6 +12,7 @@ pub struct ObjectiveType {
     weight: f64,
 }
 
+/// swamp only objective
 #[derive(Deserialize, Debug, Clone)]
 pub struct ObjectiveSwamp {
     func: SwampType,
@@ -107,7 +108,6 @@ impl ObjectiveMaster {
 
         let num_dof: usize = chain_lengths.iter().sum();
         for arm_idx in 0..num_chains {
-            // TODO GO CONST FOR MatchEEPosiDoF
             let axis = 0; // Z=0; Y=1; X=2;
             let obj = config.z_pos.clone();
             add_obj!(obj, MatchEEPosiDoF, arm_idx, axis);
@@ -160,7 +160,6 @@ impl ObjectiveMaster {
             }
         }
         log::info!("objectives : \n{recap}");
-
         Self {
             objectives,
             num_chains,

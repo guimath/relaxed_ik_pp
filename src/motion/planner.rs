@@ -36,7 +36,6 @@ impl Planner {
             }
         };
 
-        // TODO why takes a lot of time
         let planner = openrr_planner::JointPathPlannerBuilder::from_urdf_robot_with_base_dir(description.clone(), None)
             .collision_check_margin(0.01f64)
             .reference_robot(robot.clone())
