@@ -74,8 +74,8 @@ fn main() {
     const START_X: f64 = -1.3;
     const START_Y: f64 = -1.3;
 
-    const STEP_X: f64 = 0.01;
-    const STEP_Y: f64 = 0.01;
+    const STEP_X: f64 = 0.03;
+    const STEP_Y: f64 = 0.03;
     const MAX_X: f64 = 1.3;
     const MAX_Y: f64 = 1.3;
 
@@ -135,6 +135,7 @@ fn main() {
         .label_style(("sans-serif", 20))
         .draw()
         .unwrap();
+    let mut num_calc = 0; 
 
     let m = MultiProgress::new();
     let pb = m.add(ProgressBar::new(I_MAX as u64));
@@ -166,6 +167,7 @@ fn main() {
                     if target[0]*target[0] + target[1]*target[1] > radius_max_square {
                         continue;
                     } 
+                    num_calc +=1;
                     rik.reset_origin();
 
                     let res = rik.repeat_solve_ik(target);
@@ -218,6 +220,7 @@ fn main() {
                     if rad_dist < 0.2*0.2 {
                         continue;
                     }
+                    num_calc +=1;
                     rik.reset_origin();
                     shapes[0].0.translation = Translation3::new(target[0], target[1], target[2]);
                     let compound = Compound::new(shapes.clone());
@@ -261,6 +264,7 @@ fn main() {
     pb.finish_and_clear();
     let _ = m.clear();
     println!("\rTotal time elapsed = {elapsed:.3?}");
+    println!("Total calculation = {num_calc:} ({:.3?} per calc)", elapsed/num_calc);
     /* GRAPH */
 
     chart
