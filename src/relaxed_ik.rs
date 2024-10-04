@@ -124,9 +124,8 @@ impl RelaxedIK {
         }
     }
 
-
     pub fn repeat_solve_ik(&mut self, pos_goals: [f64; 3])-> Result<SolverStatus, openrr_planner::Error>{
-        let prev_cost_threshold= -260.0;//self.config.cost_threshold;
+        let prev_cost_threshold= self.min_possible_cost+10.0;//self.config.cost_threshold;
         const MAX_IK_ITER:usize = 4;
         // self.config.cost_threshold = 1000.0;
         //init vars
@@ -142,8 +141,9 @@ impl RelaxedIK {
                     return Err(err);
                 }
                 Ok(solve_status) => {
-                    if solve_status.cost_value() < prev_cost_threshold {
-                        log::debug!("reached {} after {} IK solved", prev_cost_threshold, i);
+                    let cost = solve_status.cost_value();
+                    if cost < prev_cost_threshold {
+                        log::debug!("reached {} after {} IK solved", cost, i);
                         // self.config.cost_threshold = prev_cost_threshold;
                         return Ok(solve_status);
                     }
@@ -154,28 +154,13 @@ impl RelaxedIK {
         self._optimize_ik()
     }
 
-    
-    fn _optimize_ik (&mut self) -> Result<SolverStatus, openrr_planner::Error> {
+    pub fn _optimize_ik (&mut self) -> Result<SolverStatus, openrr_planner::Error> {
         let mut out_x = self.vars.xopt.clone();
-        match self.groove.optimize(&mut out_x, &self.vars, &self.om, 200) {
-            Ok(stat) => {
-                let cost = stat.cost_value();
-                if cost > 100.0 {
-                    // TODO use custom Error
-                    Err(openrr_planner::Error::ParseError(format!(
-                        "ik, cost higher then threshold {:?} {}",
-                        stat.cost_value(),
-                        100.0
-                    )))
-                } else {
-                    self.vars.update(out_x.clone());
-                    Ok(stat)
-                }
-            }
-            Err(e) => Err(openrr_planner::Error::Other {
+        let res = self.groove.optimize(&mut out_x, &self.vars, &self.om, 200)
+            .map_err(|e| openrr_planner::Error::Other {
                 error: format!("IK failed {e:?}"),
-            }),
-        }
+            });
+        if res.is_ok() {self.vars.update(out_x.clone());}
+        res
     }
-
 }
