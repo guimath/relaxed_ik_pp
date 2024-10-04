@@ -233,9 +233,9 @@ impl <F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
         &self,
         x: &[f64],
         v: &vars::RelaxedIKVars,
-        _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
     ) -> f64 {
-        let x_val = v.robot.get_manipulability_immutable(x);
+        let x_val = v.robot.get_manipulability_with_frame(x, &frames);
 
 
         (self.loss_fn)(x_val)

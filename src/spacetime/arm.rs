@@ -185,28 +185,23 @@ impl RevoluteArm {
         (out_positions, out_rot_quats)
     }
     
-    pub fn get_jacobian_immutable(&self, x: &[f64]) -> DMatrix<f64> {
-        let (joint_positions, joint_rot_quats) = self.get_frames_immutable(x);
-        let ee_position = joint_positions[joint_positions.len() - 1];
+    pub fn get_manipulability_with_frame(&self, x:&[f64], frame_pos:&[Vector3<f64>], frame_rot:&[UnitQuaternion<f64>]) -> f64 {
+        let ee_pos = frame_pos[frame_pos.len() - 1];
         
-        let mut jacobian: DMatrix<f64> = DMatrix::identity(6, x.len());
+        let mut jacobian: DMatrix<f64> = DMatrix::zeros(6, x.len());
         
         for i in 0..self.num_dof {
             
-            let disp = ee_position - joint_positions[i+1];
-            let p_axis = joint_rot_quats[i+1] * self.joint_axis[i];
+            let disp = ee_pos - frame_pos[i+1];
+            let p_axis = frame_rot[i+1] * self.joint_axis[i];
             let linear = p_axis.cross(&disp);
             jacobian.set_column(
                 i,
                 &Vector6::new(linear.x, linear.y, linear.z, p_axis.x, p_axis.y, p_axis.z),
             );
         }
-        jacobian
-    }
 
-    pub fn get_manipulability_immutable(&self, x: &[f64]) -> f64 {
-        let jacobian = self.get_jacobian_immutable(x);
-        (jacobian.clone() * jacobian.transpose())
+        (jacobian.clone()*jacobian.transpose())
             .determinant()
             .sqrt()
     }

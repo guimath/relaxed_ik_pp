@@ -1,5 +1,6 @@
 use crate::spacetime::arm::RevoluteArm;
 use nalgebra;
+use nalgebra::{Vector3, UnitQuaternion};
 use urdf_rs;
 
 #[derive(Clone, Debug)]
@@ -70,13 +71,13 @@ impl Robot {
         out
     }
 
-    pub fn get_manipulability_immutable(&self, x: &[f64]) -> f64 {
+    pub fn get_manipulability_with_frame(&self, x: &[f64], frame:&[(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)]) -> f64{
         let mut out = 0.0;
         let mut l = 0;
         let mut r = 0;
         for i in 0..self.num_chains {
             r += self.chain_lengths[i];
-            out += self.arms[i].get_manipulability_immutable(&x[l..r]);
+            out += self.arms[i].get_manipulability_with_frame(&x[l..r], &frame[i].0, &frame[i].1);
             l = r;
         }
         out
