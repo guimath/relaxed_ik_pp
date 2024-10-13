@@ -1,69 +1,53 @@
 [package]
-name = "relaxed_ik_core"
+name = "guilhem_relaxed_ik_core"
 version = "0.1.0"
-authors = ["djrakita <djrakita@gmail.com>", "yepw <yepingw@outlook.com>"]
-edition = "2018"
-
+authors = ["Guilhem <dguilhem.mathieux.pro@gmail.com>"]
+edition = "2021"
+# Forked from : https://github.com/uwgraphics/relaxed_ik_core.git
+# name = "relaxed_ik_core"
+# version = "0.1.0"
+# authors = ["djrakita <djrakita@gmail.com>", "yepw <yepingw@outlook.com>"]
+# edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nalgebra = {version = "0.30", features = ["serde-serialize"]}
-optimization_engine =  { version = "0.7.7", features = ["wasm"] }
-ndarray = "0.13.0"
-num = "0.2.0"
-time = "0.1"
-rand = "0.7.2"
-parry3d-f64 = "0.8.0"
-path-slash = "0.1.2"
-lazy_static = "1.4.0"
-csv = "1.1.6"
-chrono = "0.4.19"
-serde = { version = "1.0.136", features = ["derive"] }
-dirs = "4.0.0"
-
-urdf-rs = "0.8" #{path = "../urdf-rs"}#"0.8"
+# Computations - Robotics 
 k = "0.31"
+nalgebra = { version = "0.30", features = ["serde-serialize"] }
 ncollide3d = "0.33"
-# openrr planner
 openrr-planner = { git = "https://github.com/openrr/openrr.git" }
-log = "0.4"
-env_logger = "0.11"
+optimization_engine = "0.9"
+parry3d-f64 = "0.8"
+urdf-rs = "0.8"
 
-# Below are for webassembly
-wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-serde-wasm-bindgen = "0.4"
-js-sys = "0.3"
-serde_json = "1.0"
-console_error_panic_hook = "0.1"
+# Other
+env_logger = "0.11"
+log = "0.4"
+pyo3 = { version = "0.22", optional = true, features = [
+    "abi3-py310",
+    "extension-module",
+] }
+pyo3-log = { version = "0.11", optional = true }
+serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 
-[dependencies.web-sys]
-version = "0.3"
-features = [
-  "console",
-]
-
 [dev-dependencies]
-urdf-viz = "0.45"
-plotters = "0.3"
 clap = { version = "4.5.13", features = ["derive"] }
 indicatif = "0.17"
+plotters = "0.3"
 scarlet = "1.2"
+urdf-viz = "0.45"
 
-[profile.dev]
-opt-level = 3
-
-[profile.release]
-opt-level = 3
 
 [lib]
 name = "relaxed_ik_lib"
 path = "src/lib.rs"
-crate-type = ["rlib",  "cdylib"]
-# path = "src/relaxed_ik_web.rs"
-# crate-type = ["cdylib"]
+crate-type = ["lib"]
 
-# [dependencies.pyo3]
-# version = "0.20.0"
-# # "abi3-py38" tells pyo3 (and maturin) to build using the stable ABI with minimum Python version 3.8
-# features = ["abi3-py38"]
+[profile]
+dev.opt-level = 3
+release.opt-level = 3
+
+[features]
+# only adds pyo3 when python_wrap feature enabled
+python_wrap = ["dep:pyo3", "dep:pyo3-log"]
