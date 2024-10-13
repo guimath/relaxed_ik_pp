@@ -1,9 +1,9 @@
 .ONESHELL:
 
-maturin :
-# Creating and setting python venv
+init_env: 
 	python3 -m venv .venv
 	. .venv/bin/activate
 	pip install -U pip maturin
-# building project and wrapper
-	maturin develop
+
+build_python :
+	maturin develop -F python_wrap
