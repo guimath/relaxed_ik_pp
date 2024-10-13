@@ -4,8 +4,8 @@ starting_joint_values= [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
 approach_dist= 0.04 
 
 [urdf_paths]
-robot= "configs/urdfs/res/ur5_grip.urdf"
-obstacle= "configs/urdfs/obstacles.urdf"
+robot= "urdfs/res/ur5_grip.urdf"
+obstacle= "urdfs/obstacles.urdf"
 
 [links]
 base= ["link_base"]

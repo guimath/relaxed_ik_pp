@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use serde::Deserialize;
 use crate::groove::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
 #[derive(Deserialize, Debug, Clone)]
@@ -49,9 +49,9 @@ pub struct Config{
     pub approach_dist: f64,
     pub objectives: ObjectivesConfig
 }
-const DEFAULT_CONF_FILE: &str = "configs/default.toml";
+const DEFAULT_CONF_FILE: &str = include_str!("../../configs/default.toml");
 impl Config {
-    pub fn from_settings_file<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
+    pub fn from_settings_file(path_to_setting: PathBuf) -> Self {
         let mut file = File::open(path_to_setting.clone()).unwrap();
         let mut contents = String::new();
         let _res = file.read_to_string(&mut contents).unwrap();
@@ -59,11 +59,17 @@ impl Config {
         if let Err(e) = res {
             panic!("{}", e);
         } 
-        let conf = res.unwrap();
-        contents = String::new();
-        let mut file = File::open(DEFAULT_CONF_FILE).expect("Default config file not found");
-        let _res = file.read_to_string(&mut contents).unwrap();
-        let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(&contents);
+        let mut conf = res.unwrap();
+        let root = path_to_setting.parent().unwrap();
+        conf.urdf_paths.robot = root.join(conf.urdf_paths.robot);
+        if conf.urdf_paths.obstacle.is_some() {
+            conf.urdf_paths.obstacle = Some(root.join(conf.urdf_paths.obstacle.unwrap()))
+        }
+        
+        // contents = String::new();
+        // let mut file = File::open(DEFAULT_CONF_FILE).expect("Default config file not found");
+        // let _res = file.read_to_string(&mut contents).unwrap();
+        let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(&DEFAULT_CONF_FILE);
         if let Err(e) = res {
             panic!("{}", e);
         } 

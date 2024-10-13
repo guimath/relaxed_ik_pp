@@ -3,7 +3,7 @@ use nalgebra::{UnitQuaternion, Vector3, Vector6};
 
 use crate::utils::config_parser::Config;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::PathBuf;
 #[derive(Serialize, Deserialize)]
 pub struct VarsConstructorData {
     // pub urdf: String,
@@ -28,7 +28,7 @@ pub struct RelaxedIKVars {
     pub init_ee_quats: Vec<UnitQuaternion<f64>>,
 }
 impl RelaxedIKVars {
-    pub fn from_local_settings<P: AsRef<Path> + Clone>(path_to_setting: P) -> Self {
+    pub fn from_local_settings(path_to_setting: PathBuf) -> Self {
         let config: Config = Config::from_settings_file(path_to_setting);
         Self::from_config(config)
     }
