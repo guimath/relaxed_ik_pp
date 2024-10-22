@@ -1,5 +1,6 @@
 use crate::utils::config_parser::Config;
-use log::warn;
+use crate::Error;
+use crate::errors::point_from_str;
 use nalgebra::{Isometry, Vector3};
 use ncollide3d::shape::{Compound, Cuboid, ShapeHandle};
 use openrr_planner::FromUrdf;
@@ -28,7 +29,7 @@ impl Planner {
                 Compound::from_urdf_robot(&urdf_obstacles)
             }
             None => {
-                warn!("No obstacles file given. Default to 0.03 0.03 0.8 box");
+                log::warn!("No obstacles file given. Default to 0.03 0.03 0.8 box");
                 Compound::new(vec![(
                     Isometry::identity(),
                     ShapeHandle::new(Cuboid::new(Vector3::new(0.03, 0.03, 0.8))),
@@ -54,12 +55,26 @@ impl Planner {
         }
     }
 
+
+    
     pub fn get_motion(
         &mut self,
         x_start: Vec<f64>,
         x_goal: Vec<f64>,
-    ) -> Result<Vec<Vec<f64>>, openrr_planner::Error> {
+    ) -> Result<Vec<Vec<f64>>, Error> {
+
         self.planner
             .plan_joints::<f64>(&self.using_joint_names, &x_start, &x_goal, &self.obstacles)
+            .map_err(|e| { match e {
+                openrr_planner::Error::Collision { point, collision_link_names } => {
+                    Error::Collision { point:point_from_str(format!("{point:?}").as_str()), collision_link_names }
+                } ,
+                openrr_planner::Error::SelfCollision { point, collision_link_names } => {
+                    Error::SelfCollision { point:point_from_str(format!("{point:?}").as_str()), collision_link_names }
+                } ,
+                openrr_planner::Error::PathPlanFail(_) => Error::PathPlanFail,
+                _ => Error::Other { error: "".to_string() }
+            }
+            })
     }
 }

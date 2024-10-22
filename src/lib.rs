@@ -5,3 +5,6 @@ pub mod relaxed_ik;
 pub mod python_wrapper;
 pub mod spacetime;
 pub mod utils;
+pub mod errors;
+
+pub use errors::Error;

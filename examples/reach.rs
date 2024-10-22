@@ -1,6 +1,7 @@
 use clap::Parser;
 use nalgebra::{Point2, Point3};
 use relaxed_ik_lib::relaxed_ik::RelaxedIK;
+use relaxed_ik_lib::Error;
 use relaxed_ik_lib::utils::config_parser::Config;
 use serde::Serialize;
 use std::{convert::TryInto, path::PathBuf, sync::Arc, fs};
@@ -63,7 +64,7 @@ p:  motion compute from current pose
 
 
 
-fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec<Vec<f64>>, openrr_planner::Error>{
+fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec<Vec<f64>>, Error>{
     let (mut q1, mut q2, _) = rik.grip(target)?;
     q1.reverse();
     q2.reverse();

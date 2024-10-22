@@ -33,9 +33,6 @@ struct ConfigParse{
 
 #[derive(Deserialize, Debug, Clone)]
 struct DefaultConfigParse{
-    /// List of package name used in urdf files
-    // starting joint values. Default = 0.0 for all
-    // additional distance for pre grasp motion. Default = 0.03
     approach_dist: f64,
     objectives: ObjectivesConfig
 }
