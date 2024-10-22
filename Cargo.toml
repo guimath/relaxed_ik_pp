@@ -30,14 +30,19 @@ pyo3 = { version = "0.22", optional = true, features = [
 pyo3-log = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
+thiserror = "1"
+savefile = "0.17"
+savefile-derive = "0.17"
 
 [dev-dependencies]
 clap = { version = "4.5.13", features = ["derive"] }
 indicatif = "0.17"
 plotters = "0.3"
+image = "0.24"
+base64 = "0.21"
 scarlet = "1.2"
 urdf-viz = "0.45"
-
+svg2pdf= "0.12"
 
 [lib]
 name = "relaxed_ik_lib"
