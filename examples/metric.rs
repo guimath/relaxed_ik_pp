@@ -1,18 +1,16 @@
 use clap::Parser;
 use nalgebra::Translation3;
 use ncollide3d::shape::Compound;
-use plotters::prelude::*;
 use relaxed_ik_lib::relaxed_ik::RelaxedIK;
+use relaxed_ik_lib::Error;
+use savefile::prelude::*;
 use serde::Serialize;
-use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fs, time};
 
 use indicatif::{MultiProgress, ProgressBar};
-use scarlet::color::RGBColor;
-use scarlet::colormap::{ColorMap, GradientColorMap};
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -38,223 +36,192 @@ struct Cli {
     /// Scan mode
     #[clap(short, long, default_value_t, value_enum)]
     mode: ScanMode,
+    /// x range
+    #[arg(short, long, value_names=&["MIN X", "MAX X"], num_args = 2, default_values_t=&[-1.3, 1.3],  allow_hyphen_values=true)]
+    x_zone: Vec<f64>,
+    /// y range
+    #[arg(short, long, value_names=&["MIN Y", "MAX Y"], num_args = 2, default_values_t=&[-1.3, 1.3],  allow_hyphen_values=true)]
+    y_zone: Vec<f64>,
     /// Height at which to scan
-    #[clap(short, long, default_value_t=0.3)]
+    #[clap(short, long, default_value_t = 0.3)]
     z_target: f64,
+    /// Number of sample per axis
+    #[clap(long, default_value_t = 200, value_name = "NUMBER")]
+    sample_per_axis: usize,
+    /// name of the scan data file - Default is <MODE>_Z_<Z_VALUE>.bin
+    #[arg(short, long, value_name = "FILE NAME")]
+    data_file: Option<String>,
     /// Radius of range of motion (1.1 for UR5, 1.0 for Xarm6) - Any point out of radius will be ignored
-    #[clap(short, long, default_value_t=1.0)]
+    #[clap(short, long, default_value_t = 1.0)]
     range_max_radius: f64,
 }
 
-fn err_to_color(err: openrr_planner::Error) -> RGBAColor {
-    match err {
-        openrr_planner::Error::ParseError { .. } => WHITE.to_rgba(), // cost to high
-        openrr_planner::Error::Other { error: _ } => CYAN.to_rgba(), // SolverError
-        openrr_planner::Error::Collision {
-            point: p,
-            collision_link_names: _,
-        } => {
-            if format!("{p:?}") == "Start" {
-                BLACK.to_rgba()
-            }
-            // UnfeasibleTrajectoryPoint is private :(
-            else {
-                MAGENTA.to_rgba()
-            } // goal collision
-        }
-        _ => RED.to_rgba(), // Path planning failed
-    }
+#[derive(Serialize, Debug, Default)]
+struct GraphConfig {
+    x_zone: [f64; 2],
+    y_zone: [f64; 2],
+    z_target: f64,
+    compute_time_s: f64,
+    compute_num: u32,
 }
 
+fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>) -> f64 {
+    //(q1.len() + q2.len()) as f64
+    let dof = q1[0].len();
+    let mut delta = 0.0;
+    let mut q = q1;
+    q.extend(q2);
+    for i in 1..q.len() {
+        for j in 0..dof {
+            delta += (q[i][j] - q[i - 1][j]).abs();
+        }
+    }
+    delta
+}
 
 fn main() {
     env_logger::init();
     let args = Cli::parse();
 
-    const START_X: f64 = -1.3;
-    const START_Y: f64 = -1.3;
+    let start_x = args.x_zone[0];
+    let start_y = args.y_zone[0];
 
-    const STEP_X: f64 = 0.03;
-    const STEP_Y: f64 = 0.03;
-    const MAX_X: f64 = 1.3;
-    const MAX_Y: f64 = 1.3;
+    let step_x = (args.x_zone[1] - args.x_zone[0]) / (args.sample_per_axis as f64);
+    let step_y = step_x;
+    // const step_x: f64 = 0.05;
+    // const step_y: f64 = 0.05;
+    // const MAX_X: f64 = 1.3;
+    // const MAX_Y: f64 = 1.3;
 
-    const I_MAX: usize = ((MAX_X - START_X) / STEP_X) as usize;
-    const J_MAX: usize = ((MAX_Y - START_Y) / STEP_Y) as usize;
+    // const I_MAX: usize = ((MAX_X - start_x) / step_x) as usize;
+    // const J_MAX: usize = ((MAX_Y - start_y) / step_y) as usize;
 
-    let (avg_time_one_calc, file_name) = match args.mode {
-        ScanMode::IK => (0.9f64, format!("ik_Z_{:+}", args.z_target)),
-        ScanMode::Motion => (9.0f64, format!("motion_Z_{:+}", args.z_target)),
+    let avg_time_one_calc = match args.mode {
+        ScanMode::IK => 0.9f64,
+        ScanMode::Motion => 9.0f64,
     };
 
-    let est_time = Duration::from_millis(((I_MAX * J_MAX) as f64 * avg_time_one_calc) as u64);
+    let total_test = args.sample_per_axis * args.sample_per_axis;
+    let est_time = Duration::from_millis((total_test as f64 * avg_time_one_calc) as u64);
     println!(
         "Total tests planned {:} ({:}x{:}). Estimated time : {:.3?}",
-        I_MAX * J_MAX,
-        I_MAX,
-        J_MAX,
-        est_time
+        total_test, args.sample_per_axis, args.sample_per_axis, est_time
     );
 
     // out file names
-    let folder = args.settings.file_stem().unwrap().to_str().unwrap();
-    let log_file = PathBuf::from(format!("ex_out/{folder}/{file_name}.log"));
-    let pic_file = PathBuf::from(format!("ex_out/{folder}/{file_name}.png"));
 
-    let _ = fs::create_dir_all(pic_file.parent().unwrap());
-    let mut f = File::create(log_file).unwrap();
-    println!("Graph will be saved to {:#?}", pic_file.as_os_str());
+    let folder = args.settings.file_stem().unwrap().to_str().unwrap();
+    let file_name = args
+        .data_file
+        .unwrap_or(format!("{:?}_Z_{:+}.bin", args.mode, args.z_target));
+    let mut data_file = PathBuf::from(format!("ex_out/{folder}/data/{file_name}"));
+    data_file.set_extension("bin");
+    let _ = fs::create_dir_all(data_file.parent().unwrap());
+    if fs::metadata(data_file.clone()).is_ok() {
+        print!(
+            "File {:#?} already exists, replace ? (Y/n): ",
+            data_file.as_os_str()
+        );
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let response = input.trim().to_uppercase();
+        if response != "Y" {
+            return;
+        }
+    }
+    let mut graph_config_file = data_file.clone();
+    graph_config_file.set_extension("toml");
+    let mut graph_config = GraphConfig {
+        x_zone: [args.x_zone[0], args.x_zone[1]],
+        y_zone: [args.y_zone[0], args.y_zone[1]],
+        z_target: args.z_target,
+        compute_time_s: 0.0,
+        compute_num: 0,
+    };
+    let toml = toml::to_string(&graph_config).unwrap();
+    fs::write(graph_config_file.clone(), toml).expect("Could not write to graph_config file");
+    println!("Data will be saved to {:#?}", data_file.as_os_str());
+    println!("\tMetadata saved to {:#?}", graph_config_file.as_os_str());
 
     // rik init
     let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
-    let mut shapes = rik.planner.obstacles.shapes().to_vec(); 
+    let mut shapes = rik.planner.obstacles.shapes().to_vec();
 
     // Graph init
-    let mut matrix = [[WHITE.to_rgba(); I_MAX]; J_MAX];
-    let root = BitMapBackend::new(pic_file.as_os_str(), (1024, 1024)).into_drawing_area();
-    root.fill(&WHITE).unwrap();
-    let mut chart = ChartBuilder::on(&root)
-        .caption(format!("{folder} - Z = {:}",args.z_target), ("sans-serif", 40))
-        .margin(10)
-        .top_x_label_area_size(40)
-        .y_label_area_size(60)
-        .build_cartesian_2d(0i32..(I_MAX as i32), (J_MAX as i32)..0i32)
-        .unwrap();
-
-    chart
-        .configure_mesh()
-        .x_desc("x")
-        .y_desc("y")
-        .x_labels(10)
-        .y_labels(10)
-        .max_light_lines(4)
-        .x_label_formatter(&|r| format!("{:.2}", START_X + STEP_X * (*r as f64)))
-        .y_label_formatter(&|r| format!("{:.2}", START_Y + STEP_Y * (*r as f64)))
-        .disable_x_mesh()
-        .disable_y_mesh()
-        .label_style(("sans-serif", 20))
-        .draw()
-        .unwrap();
-    let mut num_calc = 0; 
+    let mut matrix = vec![vec![Err(Error::OutOfRange); args.sample_per_axis]; args.sample_per_axis];
+    let mut num_calc = 0;
 
     let m = MultiProgress::new();
-    let pb = m.add(ProgressBar::new(I_MAX as u64));
-    let pb2 = m.add(ProgressBar::new(J_MAX as u64));
+    let pb = m.add(ProgressBar::new(args.sample_per_axis as u64));
+    let pb2 = m.add(ProgressBar::new(args.sample_per_axis as u64));
     let t1 = time::Instant::now();
 
-    let red = RGBColor::from_hex_code("#ff0000").unwrap();
-    let green = RGBColor::from_hex_code("#00ff00").unwrap();
-    let cmap = GradientColorMap::new_linear(green, red);
-    let to_color =  |h| {
-        let color = cmap.transform_single(h);
-        plotters::prelude::RGBColor(color.int_r(), color.int_g(), color.int_b())
-            .to_rgba()
-    };
-
-    let radius_max_square = args.range_max_radius*args.range_max_radius;
+    let radius_max_square = args.range_max_radius * args.range_max_radius;
     match args.mode {
         ScanMode::IK => {
-            let min_cost = rik.min_possible_cost;
-            let max_cost = -200.0;
-            let delta_cost = max_cost-min_cost;
-            for i in 0..I_MAX {
-                for j in 0..J_MAX {
+            // let min_cost = rik.min_possible_cost;
+            // let max_cost = -200.0;
+            // let delta_cost = max_cost-min_cost;
+            for i in 0..args.sample_per_axis {
+                for j in 0..args.sample_per_axis {
                     let target = [
-                        START_X + i as f64 * STEP_X,
-                        START_Y + j as f64 * STEP_Y,
+                        start_x + i as f64 * step_x,
+                        start_y + j as f64 * step_y,
                         args.z_target,
                     ];
-                    if target[0]*target[0] + target[1]*target[1] > radius_max_square {
+                    if target[0] * target[0] + target[1] * target[1] > radius_max_square {
                         continue;
-                    } 
-                    num_calc +=1;
+                    }
+                    num_calc += 1;
                     rik.reset_origin();
 
-                    let res = rik.repeat_solve_ik(target);
+                    let res = rik.grip_two_ik(target);
                     matrix[j][i] = match res {
-                        Ok(status) => {
-                            let h = (status.cost_value().clamp(min_cost, max_cost) - min_cost) / delta_cost;
-                            to_color(h)
-                        }
-                        Err(e) => {
-                            f.write_all(format!("{target:?} \t {e}\n").as_bytes())
-                                .unwrap();
-                            err_to_color(e)
-                        }
+                        Ok((_, _, _, status)) => Ok(status.cost_value()),
+                        Err(e) => Err(e),
                     };
                     pb2.set_position(j as u64);
                 }
                 pb.set_position(i as u64);
-                if i % 10 == 0 {
-                    // real time plotting
-                    chart
-                        .draw_series(
-                            matrix
-                                .iter()
-                                .zip(0..)
-                                .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
-                                .map(|(x, y, color)| {
-                                    Rectangle::new([(x, y), (x + 1, y + 1)], color.filled())
-                                }),
-                        )
-                        .unwrap();
-                    let _ = root.present();
+                if i % 10 == 0 && i != 0 {
+                    save_file(data_file.clone(), 0, &matrix).unwrap();
                 }
             }
         }
         ScanMode::Motion => {
-            let min_step = 3;
-            let max_step = 10;
-            let delta_step = max_step-min_step;
-            for i in 0..I_MAX {
-                for j in 0..J_MAX {
+            // let min_step = 3;
+            // let max_step = 10;
+            // let delta_step = max_step-min_step;
+            for i in 0..args.sample_per_axis {
+                for j in 0..args.sample_per_axis {
                     let target = [
-                        START_X + i as f64 * STEP_X,
-                        START_Y + j as f64 * STEP_Y,
+                        start_x + i as f64 * step_x,
+                        start_y + j as f64 * step_y,
                         args.z_target,
                     ];
-                    let rad_dist = target[0]*target[0] + target[1]*target[1];
+                    let rad_dist = target[0] * target[0] + target[1] * target[1];
                     if rad_dist > radius_max_square {
                         continue;
-                    } 
-                    if rad_dist < 0.2*0.2 {
+                    }
+                    if rad_dist < 0.2 * 0.2 {
                         continue;
                     }
-                    num_calc +=1;
+                    num_calc += 1;
                     rik.reset_origin();
                     shapes[0].0.translation = Translation3::new(target[0], target[1], target[2]);
                     let compound = Compound::new(shapes.clone());
                     rik.planner.obstacles = compound;
                     let grip = rik.grip(target);
                     matrix[j][i] = match grip {
-                        Ok((q1, q2, _res)) => {
-                            // f.write_all(format!("Success {target:?} {_res:?}\n").as_bytes()).unwrap();
-                            let h = ((q1.len()+q2.len()).clamp(min_step, max_step) - min_step) as f64 / delta_step as f64;
-                            to_color(h)
-                        }
-                        Err(e) => {
-                            f.write_all(format!("{target:?} \t {e}\n").as_bytes())
-                                .unwrap();
-                            err_to_color(e)
-                        }
+                        Ok((q1, q2, _res)) => Ok(q_to_value(q1, q2)),
+                        Err(e) => Err(e),
                     };
                     pb2.set_position(j as u64);
                 }
                 pb.set_position(i as u64);
-                if i % 5 == 0 {
-                    // real time plotting
-                    chart
-                        .draw_series(
-                            matrix
-                                .iter()
-                                .zip(0..)
-                                .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
-                                .map(|(x, y, color)| {
-                                    Rectangle::new([(x, y), (x + 1, y + 1)], color.filled())
-                                }),
-                        )
-                        .unwrap();
-                    let _ = root.present();
+                if i % 5 == 0 && i != 0 {
+                    save_file(data_file.clone(), 0, &matrix).unwrap();
                 }
             }
         }
@@ -264,21 +231,17 @@ fn main() {
     pb.finish_and_clear();
     let _ = m.clear();
     println!("\rTotal time elapsed = {elapsed:.3?}");
-    println!("Total calculation = {num_calc:} ({:.3?} per calc)", elapsed/num_calc);
-    /* GRAPH */
-
-    chart
-        .draw_series(
-            matrix
-                .iter()
-                .zip(0..)
-                .flat_map(|(l, y)| l.iter().zip(0..).map(move |(v, x)| (x, y, v)))
-                .map(|(x, y, color)| Rectangle::new([(x, y), (x + 1, y + 1)], color.filled())),
-        )
-        .unwrap();
-    let _ = root.present();
+    println!(
+        "Total calculation = {num_calc:} ({:.3?} per calc)",
+        elapsed / num_calc
+    );
+    save_file(data_file, 0, &matrix).unwrap();
+    graph_config.compute_num = num_calc;
+    graph_config.compute_time_s = elapsed.as_secs_f64();
+    let toml = toml::to_string(&graph_config).unwrap();
+    fs::write(graph_config_file, toml).expect("Could not write to graph_config file");
 }
-
+// Total calculation = 125619 (3.666ms per calc)
 // Cyan: Solver error on inverse kinematics (IK failed NotFiniteComputation)
 // White: Ik solved but not satisfying (IK, cost higher then threshold)
 // Black: Collision with bottle at start (Collision error: ... (Start))
