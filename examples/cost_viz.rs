@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let args: Cli = Cli::parse();
     let mut pic_file = args.settings.clone();
-    pic_file.set_extension("png");
+    pic_file.set_extension("svg");
     let mut file = File::open(args.settings.clone()).unwrap();
     let mut contents = String::new();
     let _res = file.read_to_string(&mut contents).unwrap();
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "{}",
         args.settings.file_stem().unwrap().to_str().unwrap()
     ));
-    let root = BitMapBackend::new(pic_file.as_os_str(), graph_size.into()).into_drawing_area();
+    let root = SVGBackend::new(pic_file.as_os_str(), graph_size.into()).into_drawing_area();
     root.fill(&WHITE)?;
     let mut chart = ChartBuilder::on(&root)
         .caption(title, ("sans-serif", 28).into_font())
