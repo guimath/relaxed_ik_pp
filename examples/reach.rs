@@ -4,6 +4,7 @@ use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use relaxed_ik_lib::Error;
 use relaxed_ik_lib::utils::config_parser::Config;
 use serde::Serialize;
+use std::path::Path;
 use std::{convert::TryInto, path::PathBuf, sync::Arc, fs};
 use urdf_rs::Vec3;
 use urdf_viz::Viewer;
@@ -91,7 +92,7 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
         rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] =
             rik.gripper_length + rik.config.approach_dist;
     }
-    let _res = rik.repeat_solve_ik(target); //x: -0.0012 y: -0.1129 z:0.0596
+    let res = rik.repeat_solve_ik(target); //x: -0.0012 y: -0.1129 z:0.0596
     // let (pos, _quat) = rik.get_ee_pos();
     // println!(
     //     "x: {:.4} y: {:.4} z:{:.4}",
@@ -100,10 +101,13 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
     //     target[2] - pos[2]
     // );
     // println!("status ;  {:?}", _res);
-    if _res.is_ok() {
-        *cost = _res.unwrap().cost_value()
+    if res.is_ok() {
+        *cost = res.unwrap().cost_value()
     }
-    else {*cost= 1000.0;} 
+    else {
+        *cost= 1000.0;
+        println!("{res:?}");
+    } 
     rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] = rik.gripper_length;
     rik.vars.xopt.clone()
 }
@@ -116,8 +120,24 @@ fn main() {
     let conf = Config::from_settings_file(args.settings.clone());
     // rik init
     let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
+    let mut shapes = rik.planner.obstacles.shapes().to_vec();
     // urdf viz
-    let (mut viewer, mut window) = Viewer::new("Example of grip");
+    let v = 0.6;
+    let (mut viewer, mut window) = Viewer::with_background_color("Example of grip", (v, v, v));
+    const ADD_GRAPH : bool = false;
+    if ADD_GRAPH {
+        let text=  window.add_texture(Path::new("ex_out/xarm6/data/pose1_ik.png"), "graph");
+        let mut rect = window.add_cube(1.3*2.0, 1.3*2.0, 0.01);
+        rect.set_local_translation(nalgebra::Translation3::new(0.,0.,0.3));
+        rect.set_texture(text);
+
+        // let text2=  window.add_texture(Path::new("ex_out/xarm6/data/pose1_ik_yz.png"), "graph2");
+        // let mut rect2 = window.add_cube(0.01, 1.3*2.0,1.3*2.0);
+        // rect2.set_local_translation(nalgebra::Translation3::new(0.3,0.0,0.0));
+        // rect2.set_local_rotation(UnitQuaternion::from_euler_angles(-1.57075, 0.0, 0.0));
+        // rect2.set_texture(text2);
+        viewer.enable_texture();
+    }
     let mut cam = viewer.arc_ball.clone();
     cam.set_pitch(args.camera_position[0]);
     cam.set_yaw(args.camera_position[1]);
@@ -138,15 +158,24 @@ fn main() {
         .expect("No obstacles file in config, add obstacles: FILE_PATH to config")
         .clone();
     let mut obstacle_description = urdf_rs::read_file(new_obst.clone()).unwrap();
-    obstacle_description.links[0].visual[0].origin.xyz = Vec3(target);
-    obstacle_description.links[0].collision[0].origin.xyz = Vec3(target);
+    let mut target_robot = obstacle_description.clone();
+    target_robot.links.truncate(1);
+    target_robot.name = String::from("Target");
+    obstacle_description.name = String::from("Scene_obstacles");
+    obstacle_description.links.remove(0);
+    target_robot.links[0].visual[0].origin.xyz = Vec3(target);
+    target_robot.links[0].collision[0].origin.xyz = Vec3(target);
+
     viewer.add_robot(&mut window, &obstacle_description, &Default::default());
+    viewer.add_robot(&mut window, &target_robot, &Default::default());
     // Text options
     let menu_pose = Point2::new(10.0f32, 10.0);
     let menu_color = Point3::new(1.0f32, 1.0, 1.0);
+    // let menu_color = Point3::new(1.0f32, 1.0, 1.0);
     let menu_font = 50.0f32;
     let info_color = Point3::new(0.0f32, 1.0, 0.0);
     let info_font = 40.0;
+
     match args.mode {
         VisMode::VisualOnly => {
             let q = rik.vars.xopt.clone();
@@ -214,12 +243,16 @@ fn main() {
                         plans.push(get_ik(&mut rik,next_target, with_reset, with_approach_dist, &mut last_cost));
                         cur_target = next_target;
                     }
-                    // moving obstacle
-                    viewer.remove_robot(&mut window, &obstacle_description);
-                    obstacle_description.links[0].visual[0].origin.xyz = Vec3(next_target);
-                    obstacle_description.links[0].collision[0].origin.xyz = Vec3(next_target);
-                    viewer.add_robot(&mut window, &obstacle_description, &Default::default());
-                }
+                    // moving obstacle visual
+                    viewer.remove_robot(&mut window, &target_robot);
+                    target_robot.links[0].visual[0].origin.xyz = Vec3(next_target);
+                    target_robot.links[0].collision[0].origin.xyz = Vec3(next_target);
+                    viewer.add_robot(&mut window, &target_robot, &Default::default());
+                    // moving obstacle compute
+                    shapes[0].0.translation = nalgebra::Translation3::new(target[0], target[1], target[2]);
+                    let compound = ncollide3d::shape::Compound::new(shapes.clone());
+                    rik.planner.obstacles = compound;
+                }   
                 
                 if !plans.is_empty() {
                     let plan = plans.pop().unwrap();
@@ -291,6 +324,7 @@ fn main() {
                             }
                             Key::R => {
                                 rik.reset_origin();
+                                last_cost = 0.0;
                                 plans.push(rik.vars.xopt.clone());
                             }
                             Key::T => live_compute = !live_compute,
