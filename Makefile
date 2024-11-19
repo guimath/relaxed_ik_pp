@@ -1,3 +1,15 @@
+CARGO_EXAMPLE := cargo run --release --example
+ROBOT := xarm6
+CONFIG_FILE := configs/$(ROBOT).toml
+LOG_LEVEL := warn  # debug, info, warn, none 
+ZOOM_DIST := 1.3
+NAME = place_holder.bin
+ARGS := 
+EXAMPLE:= reach
+DATA_FOLDER := ex_out/$(ROBOT)/data
+debug := RUST_LOG=none,relaxed_ik_lib=$(LOG_LEVEL)
+
+
 .ONESHELL:
 
 init_env: 
@@ -8,23 +20,33 @@ init_env:
 build_python :
 	maturin develop -F python_wrap
 
-vis_xarm: 	
-	cargo run --release --example reach -- -s configs/xarm6.toml  -t 10 10 10 -c 0.785 -0.785 1.3
+reach_vis_no_bottle:
+	$(debug) $(CARGO_EXAMPLE) reach -- -s $(CONFIG_FILE) -t 10 10 10 -c 0.785 -0.785 $(ZOOM_DIST)
 
-vis_ur5: 	
-	cargo run --release --example reach -- -s configs/ur5.toml  -t 10 10 10 -c 0.785 -0.785 1.7
+reach_vis: 
+	$(debug) $(CARGO_EXAMPLE) reach -- -s $(CONFIG_FILE) $(ARGS)
 
-debug: 
-	RUST_LOG=none,relaxed_ik_lib=debug 
+reach_full: 
+	$(debug) $(CARGO_EXAMPLE) reach -- -s $(CONFIG_FILE) -m full $(ARGS)
+	 
 	
-ik_scan_named:
-	cargo run --release --example metric -- -s configs/xarm6.toml -z 0.3 -d pose1_ik.bin --sample-per-axis 400
+metric_ik:
+	$(debug) $(CARGO_EXAMPLE) metric -- -s $(CONFIG_FILE) $(ARGS)
 
-motion_scan_xarm:
-	cargo run --release --example metric -- -s configs/xarm6.toml -m motion -z 0.3 -d pose1_motion_dist.bin --sample-per-axis 400
+metric_motion:
+	$(debug) $(CARGO_EXAMPLE) metric -- -s $(CONFIG_FILE) -m motion $(ARGS)
 
 plot_metric:
-	cargo run --release --example plot_metric -- -d ex_out/xarm6/data/pose1_ik.bin
+	$(CARGO_EXAMPLE) plot_metric -- $(ARGS)
 
 plot_all_metric : 
-	find ex_out/xarm6/data/*.bin -name '*.bin' | xargs -I {} cargo run --release --example plot_metric -- -d {}
+	find $(DATA_FOLDER)/*.bin -name '*.bin' | xargs -I {} $(CARGO_EXAMPLE) plot_metric -- -d {}
+
+
+metric_and_plot : 
+	$(debug) $(CARGO_EXAMPLE) metric -- -s $(CONFIG_FILE) -d $(NAME) --sample-per-axis $(SAMPLES) $(ARGS)
+	$(CARGO_EXAMPLE) plot_metric -- -d $(DATA_FOLDER)/$(NAME)
+
+help:
+	$(CARGO_EXAMPLE) $(EXAMPLE) -- -h
+	
