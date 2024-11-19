@@ -14,9 +14,9 @@ use urdf_viz::{Action, Key, WindowEvent};
 #[serde(rename_all = "kebab-case")]
 enum VisMode {
     /// Just show the scene with robot and obstacle
-    #[default]
     VisualOnly,
     /// Full simulation (movable target, ik & motion)
+    #[default]
     Full,
 
 }
