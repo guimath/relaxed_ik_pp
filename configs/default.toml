@@ -18,6 +18,10 @@ weight= 70
 func= {Swamp={l_bound= -0.1, u_bound= 0.1, f1= 2.0, f2= 0.2, p1= 20}}
 weight= 70
 
+[objectives.vertical_arm]
+func= {Groove={t = 0.0, d = 2, c = 0.05, f = 20.0, g = 2}}
+weight= 0
+
 [objectives.horizontal_arm]
 func= {Groove={t = 0.0, d = 2, c = 0.05, f = 20.0, g = 2}}
 weight= 20
