@@ -68,6 +68,90 @@ pub trait ObjectiveTrait {
     } // manual diff = 0, finite diff = 1
 }
 
+
+#[derive(Debug)]
+pub struct VerticalArm<F: LossFunction>{
+    pub arm_idx: usize,
+    pub loss_fn: F,
+}
+
+impl <F:LossFunction> ObjectiveTrait for VerticalArm<F> 
+    {
+    #[inline]
+    fn call(
+        &self,
+        _x: &[f64],
+        _v: &vars::RelaxedIKVars,
+        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+    ) -> f64 {
+        // let last_elem = frames[self.arm_idx].0.len() - 1;
+        // let euler = frames[0].1[last_elem].euler_angles();
+        // println!("{} {}",euler.0,euler.2);
+        // (self.loss_fn)(euler.0) + (self.loss_fn)(euler.2-1.57075)
+        
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let y_delta: f64 = frames[self.arm_idx].0[last_elem].y - frames[self.arm_idx].0[last_elem - 1].y;
+
+        // et ee_pos = frames[self.arm_idx].0[last_elem];
+        // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
+        // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
+        (self.loss_fn)(y_delta)
+    }
+    fn call_lite(
+        &self,
+        _x: &[f64],
+        _v: &vars::RelaxedIKVars,
+        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+    ) -> f64 {
+        // let ee_pos = ee_poses[self.arm_idx].0;
+        // let   goal = v.goal_positions[self.arm_idx];
+        let x_val = 1.0; // placeholder
+        (self.loss_fn)(x_val)
+    }
+}
+
+
+#[derive(Debug)]
+pub struct VerticalArm2<F: LossFunction>{
+    pub arm_idx: usize,
+    pub loss_fn: F,
+}
+
+impl <F:LossFunction> ObjectiveTrait for VerticalArm2<F> 
+    {
+    #[inline]
+    fn call(
+        &self,
+        _x: &[f64],
+        _v: &vars::RelaxedIKVars,
+        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+    ) -> f64 {
+        // let last_elem = frames[self.arm_idx].0.len() - 1;
+        // let euler = frames[0].1[last_elem].euler_angles();
+        // println!("{} {}",euler.0,euler.2);
+        // (self.loss_fn)(euler.0) + (self.loss_fn)(euler.2-1.57075)
+        
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+        let x_delta: f64 = frames[self.arm_idx].0[last_elem].x - frames[self.arm_idx].0[last_elem - 1].x;
+        // et ee_pos = frames[self.arm_idx].0[last_elem];
+        // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
+        // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
+        (self.loss_fn)(x_delta)
+    }
+    fn call_lite(
+        &self,
+        _x: &[f64],
+        _v: &vars::RelaxedIKVars,
+        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+    ) -> f64 {
+        // let ee_pos = ee_poses[self.arm_idx].0;
+        // let   goal = v.goal_positions[self.arm_idx];
+        let x_val = 1.0; // placeholder
+        (self.loss_fn)(x_val)
+    }
+}
+
+
 #[derive(Debug)]
 pub struct HorizontalArm<F: LossFunction>{
     pub arm_idx: usize,
@@ -88,6 +172,9 @@ impl <F:LossFunction> ObjectiveTrait for HorizontalArm<F>
         let ee_pos = frames[self.arm_idx].0[last_elem].z;
         let prev_pos = frames[self.arm_idx].0[last_elem - 1].z;
         let x_val: f64 = ee_pos - prev_pos;
+        // et ee_pos = frames[self.arm_idx].0[last_elem];
+        // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
+        // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
         (self.loss_fn)(x_val)
     }
     fn call_lite(

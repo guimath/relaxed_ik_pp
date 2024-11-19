@@ -105,6 +105,7 @@ impl Config {
             or_default!(minimize_jerk);
             or_default!(maximize_manipulability);
             or_default!(self_collision);
+            or_default!(vertical_arm);
         }
         
         Self{

@@ -27,6 +27,7 @@ pub struct ObjectivesConfigParse {
     pub z_pos: Option<ObjectiveType>,
     pub horizontal_grip: Option<ObjectiveType>,
     pub horizontal_arm: Option<ObjectiveType>,
+    pub vertical_arm: Option<ObjectiveType>,
     pub joint_limits: Option<ObjectiveSwamp>,
     pub minimize_velocity: Option<ObjectiveType>,
     pub minimize_acceleration: Option<ObjectiveType>,
@@ -43,6 +44,7 @@ pub struct ObjectivesConfig {
     pub z_pos: ObjectiveType,
     pub horizontal_grip: ObjectiveType,
     pub horizontal_arm: ObjectiveType,
+    pub vertical_arm: ObjectiveType,
     pub joint_limits: ObjectiveSwamp,
     pub minimize_velocity: ObjectiveType,
     pub minimize_acceleration: ObjectiveType,
@@ -121,6 +123,10 @@ impl ObjectiveMaster {
             add_obj!(obj, HorizontalArm, arm_idx);
             let obj = config.horizontal_grip.clone();
             add_obj!(obj, HorizontalGripper, arm_idx);
+            let obj = config.vertical_arm.clone();
+            add_obj!(obj, VerticalArm, arm_idx);
+            add_obj!(obj, VerticalArm2, arm_idx);
+
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
         let weight = config.joint_limits.weight;
