@@ -43,6 +43,7 @@ base64 = "0.21"
 scarlet = "1.2"
 urdf-viz = "0.45"
 svg2pdf= "0.12"
+csv = "1.1"
 
 [lib]
 name = "relaxed_ik_lib"
