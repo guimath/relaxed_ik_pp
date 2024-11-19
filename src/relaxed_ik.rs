@@ -136,11 +136,12 @@ impl RelaxedIK {
     pub fn repeat_solve_ik(&mut self, pos_goals: [f64; 3])-> Result<SolverStatus, Error>{
         let cost_threshold= self.min_possible_cost+10.0;//self.config.cost_threshold;
         const MAX_IK_ITER:usize = 4;
+        const Z_OFFSET: f64 = 0.0;
         // self.config.cost_threshold = 1000.0;
         //init vars
         for i in 0..self.vars.robot.num_chains {
             self.vars.goal_positions[i] =
-                Vector3::new(pos_goals[3 * i], pos_goals[3 * i + 1], pos_goals[3 * i + 2]);
+                Vector3::new(pos_goals[3 * i], pos_goals[3 * i + 1], pos_goals[3 * i + 2]+Z_OFFSET);
         }
         // let mut prev_cost = 200.0;
 
