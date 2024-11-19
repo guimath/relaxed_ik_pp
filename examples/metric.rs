@@ -1,6 +1,4 @@
 use clap::Parser;
-use nalgebra::Translation3;
-use ncollide3d::shape::Compound;
 use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use relaxed_ik_lib::Error;
 use savefile::prelude::*;
@@ -63,9 +61,13 @@ struct GraphConfig {
     z_target: f64,
     compute_time_s: f64,
     compute_num: u32,
+    scale_label: String,
+    range_scale: Option<[f64; 2]>,
+    points_scale: Option<usize>,
+    data_offset: Option<f64>,
 }
 
-fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>) -> f64 {
+fn q_to_dist(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>) -> f64 {
     //(q1.len() + q2.len()) as f64
     let dof = q1[0].len();
     let mut delta = 0.0;
@@ -79,6 +81,20 @@ fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>) -> f64 {
     delta
 }
 
+fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>, get_dist:bool) -> f64 {
+    if get_dist{
+        q_to_dist(q1, q2)
+    }
+    else {
+        (q1.len() + q2.len()) as f64
+    }
+}
+
+fn write_toml(graph_config_file:PathBuf, graph_config:&GraphConfig){
+    let toml = toml::to_string(graph_config).unwrap();
+    fs::write(graph_config_file, toml).expect("Could not write to graph_config file");
+}
+
 fn main() {
     env_logger::init();
     let args = Cli::parse();
@@ -87,20 +103,12 @@ fn main() {
     let start_y = args.y_zone[0];
 
     let step_x = (args.x_zone[1] - args.x_zone[0]) / (args.sample_per_axis as f64);
-    let step_y = step_x;
-    // const step_x: f64 = 0.05;
-    // const step_y: f64 = 0.05;
-    // const MAX_X: f64 = 1.3;
-    // const MAX_Y: f64 = 1.3;
-
-    // const I_MAX: usize = ((MAX_X - start_x) / step_x) as usize;
-    // const J_MAX: usize = ((MAX_Y - start_y) / step_y) as usize;
+    let step_y = (args.y_zone[1] - args.y_zone[0]) / (args.sample_per_axis as f64);
 
     let avg_time_one_calc = match args.mode {
         ScanMode::IK => 0.9f64,
         ScanMode::Motion => 9.0f64,
     };
-
     let total_test = args.sample_per_axis * args.sample_per_axis;
     let est_time = Duration::from_millis((total_test as f64 * avg_time_one_calc) as u64);
     println!(
@@ -109,7 +117,6 @@ fn main() {
     );
 
     // out file names
-
     let folder = args.settings.file_stem().unwrap().to_str().unwrap();
     let file_name = args
         .data_file
@@ -130,6 +137,11 @@ fn main() {
             return;
         }
     }
+
+    // rik init
+    let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
+    let mut shapes = rik.planner.obstacles.shapes().to_vec();
+
     let mut graph_config_file = data_file.clone();
     graph_config_file.set_extension("toml");
     let mut graph_config = GraphConfig {
@@ -138,15 +150,14 @@ fn main() {
         z_target: args.z_target,
         compute_time_s: 0.0,
         compute_num: 0,
+        scale_label: "Cost increase from minimum".to_string(),
+        data_offset: Some(-rik.min_possible_cost),
+        range_scale: Some([0.0, 50.0]),
+        points_scale: None,
     };
-    let toml = toml::to_string(&graph_config).unwrap();
-    fs::write(graph_config_file.clone(), toml).expect("Could not write to graph_config file");
+    write_toml(graph_config_file.clone(), &graph_config);
     println!("Data will be saved to {:#?}", data_file.as_os_str());
     println!("\tMetadata saved to {:#?}", graph_config_file.as_os_str());
-
-    // rik init
-    let mut rik = RelaxedIK::new(args.settings.to_str().unwrap());
-    let mut shapes = rik.planner.obstacles.shapes().to_vec();
 
     // Graph init
     let mut matrix = vec![vec![Err(Error::OutOfRange); args.sample_per_axis]; args.sample_per_axis];
@@ -160,17 +171,17 @@ fn main() {
     let radius_max_square = args.range_max_radius * args.range_max_radius;
     match args.mode {
         ScanMode::IK => {
-            // let min_cost = rik.min_possible_cost;
-            // let max_cost = -200.0;
-            // let delta_cost = max_cost-min_cost;
+            let mut target: [f64; 3];
             for i in 0..args.sample_per_axis {
                 for j in 0..args.sample_per_axis {
-                    let target = [
-                        start_x + i as f64 * step_x,
-                        start_y + j as f64 * step_y,
+                    let i_val = start_x + i as f64 * step_x;
+                    let j_val = start_y + j as f64 * step_y;
+                    target = [
+                        i_val,
+                        j_val,
                         args.z_target,
                     ];
-                    if target[0] * target[0] + target[1] * target[1] > radius_max_square {
+                    if i_val.powi(2) + j_val.powi(2) > radius_max_square {
                         continue;
                     }
                     num_calc += 1;
@@ -190,9 +201,21 @@ fn main() {
             }
         }
         ScanMode::Motion => {
-            // let min_step = 3;
-            // let max_step = 10;
-            // let delta_step = max_step-min_step;
+            const GET_DIST:bool= false;
+            if GET_DIST{
+                graph_config.data_offset = None;
+                graph_config.range_scale = Some([3.0, 20.0]);
+                graph_config.points_scale = None;
+                graph_config.scale_label = "C-Space distance to reach grasp pose (rad)".to_string();
+            }
+            else {
+                graph_config.data_offset = Some(-4.0);
+                graph_config.range_scale = Some([0.0, 10.0]);
+                graph_config.points_scale = Some(10);
+                graph_config.scale_label = "Additional steps in motion planning".to_string();
+            }
+            write_toml(graph_config_file.clone(), &graph_config);
+
             for i in 0..args.sample_per_axis {
                 for j in 0..args.sample_per_axis {
                     let target = [
@@ -201,20 +224,17 @@ fn main() {
                         args.z_target,
                     ];
                     let rad_dist = target[0] * target[0] + target[1] * target[1];
-                    if rad_dist > radius_max_square {
-                        continue;
-                    }
-                    if rad_dist < 0.2 * 0.2 {
+                    if 0.2 * 0.2 > rad_dist || rad_dist > radius_max_square {
                         continue;
                     }
                     num_calc += 1;
                     rik.reset_origin();
-                    shapes[0].0.translation = Translation3::new(target[0], target[1], target[2]);
-                    let compound = Compound::new(shapes.clone());
+                    shapes[0].0.translation = nalgebra::Translation3::new(target[0], target[1], target[2]);
+                    let compound = ncollide3d::shape::Compound::new(shapes.clone());
                     rik.planner.obstacles = compound;
                     let grip = rik.grip(target);
                     matrix[j][i] = match grip {
-                        Ok((q1, q2, _res)) => Ok(q_to_value(q1, q2)),
+                        Ok((q1, q2, _res)) => Ok(q_to_value(q1, q2, GET_DIST)),
                         Err(e) => Err(e),
                     };
                     pb2.set_position(j as u64);
@@ -238,15 +258,10 @@ fn main() {
     save_file(data_file, 0, &matrix).unwrap();
     graph_config.compute_num = num_calc;
     graph_config.compute_time_s = elapsed.as_secs_f64();
-    let toml = toml::to_string(&graph_config).unwrap();
-    fs::write(graph_config_file, toml).expect("Could not write to graph_config file");
+    write_toml(graph_config_file.clone(), &graph_config);
 }
-// Total calculation = 125619 (3.666ms per calc)
 // Cyan: Solver error on inverse kinematics (IK failed NotFiniteComputation)
 // White: Ik solved but not satisfying (IK, cost higher then threshold)
 // Black: Collision with bottle at start (Collision error: ... (Start))
 // Magenta: Collision with bottle at End (Collision error: ... (Goal))
 // Red: path planing failed ()
-// between  green and red: all good, the greener the more direct the path
-
-// To remove specific errors from log regex : ^.*(threshold).*\n?
