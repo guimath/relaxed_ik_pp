@@ -1,5 +1,3 @@
-
-
 use pyo3::prelude::*;
 use crate::relaxed_ik::RelaxedIK;
 
@@ -20,6 +18,12 @@ impl RelaxedWrapper {
         q1.extend(q2);
         q1
     }
+
+    pub fn ik(&mut self, pos_goals:[f64; 3])-> Vec<f64> {
+        self.rik.repeat_solve_ik(pos_goals).unwrap();
+        self.rik.vars.xopt.clone()
+    }
+
     pub fn reset(&mut self, x: Vec<f64>) {
         self.rik.reset(x.clone());
     }
@@ -35,13 +39,3 @@ fn relaxed_ik_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RelaxedWrapper>()?;
     Ok(())
 }
-
-// A Python module implemented in Rust. The name of this function must match
-// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
-// import the module.
-// #[pymodule]
-// fn relaxed_ik_lib(_py: Python, m: &PyModule) -> PyResult<()> {
-//     // pyo3_log::init();
-//     m.add_class::<RelaxedWrapper>()?;
-//     Ok(())
-// }
