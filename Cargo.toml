@@ -12,13 +12,13 @@ edition = "2021"
 
 [dependencies]
 # Computations - Robotics 
-k = "0.31"
+k = "0.32"
 nalgebra = { version = "0.30", features = ["serde-serialize"] }
 ncollide3d = "0.33"
 openrr-planner = { git = "https://github.com/openrr/openrr.git" }
 optimization_engine = "0.9"
 parry3d-f64 = "0.8"
-urdf-rs = "0.8"
+urdf-rs = "0.9"
 
 # Other
 env_logger = "0.11"
@@ -41,7 +41,7 @@ plotters = "0.3"
 image = "0.24"
 base64 = "0.21"
 scarlet = "1.2"
-urdf-viz = "0.45"
+urdf-viz = "0.46"
 svg2pdf= "0.12"
 csv = "1.1"
 
