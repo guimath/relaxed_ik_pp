@@ -168,7 +168,7 @@ fn main() {
     let mut svg_content = String::new();
     {
         let root = SVGBackend::with_string(&mut svg_content, (1120, 1000)).into_drawing_area();
-        // root.fill(&WHITE).unwrap();
+        root.fill(&WHITE).unwrap();
         let (left, right) = root.split_horizontally(1020);//1020
         // top margin = 10
         // x label = 60
