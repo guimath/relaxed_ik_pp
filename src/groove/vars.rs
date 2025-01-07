@@ -34,7 +34,6 @@ impl RelaxedIKVars {
     }
 
     pub fn from_config(config: Config) -> Self {
-        let _chain = k::Chain::<f64>::from_urdf_file(config.urdf_paths.robot.clone()).unwrap();
         let num_chains = config.links.base.len();
 
         let mut tolerances: Vec<Vector6<f64>> = Vec::new();
@@ -42,7 +41,7 @@ impl RelaxedIKVars {
             tolerances.push(Vector6::new(0., 0., 0., 0., 0., 0.));
         }
 
-        let urdf = &std::fs::read_to_string(config.urdf_paths.robot).unwrap();
+        let urdf = &std::fs::read_to_string(config.urdf_paths.robot).expect("Robot urdf not found");
         let robot = Robot::from_urdf(urdf, &config.links.base, &config.links.ee);
 
         let mut init_ee_positions: Vec<Vector3<f64>> = Vec::new();

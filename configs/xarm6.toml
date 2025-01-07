@@ -4,7 +4,7 @@ starting_joint_values= [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
 approach_dist= 0.05 
 
 [urdf_paths]
-robot= "urdfs/res/xarm6_grip.urdf"
+robot= "urdfs/xarm6_grip.urdf"
 obstacle= "urdfs/obstacles.urdf"
 
 [links]
