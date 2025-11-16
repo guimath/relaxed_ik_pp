@@ -1,9 +1,9 @@
 use clap::Parser;
+use csv::Writer;
 use relaxed_ik_lib::relaxed_ik::RelaxedIK;
 use std::fs;
 use std::io::Write;
 use std::{io, path::PathBuf, time};
-use csv::Writer;
 /// args
 #[derive(Parser)]
 struct Cli {

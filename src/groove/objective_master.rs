@@ -126,7 +126,6 @@ impl ObjectiveMaster {
             let obj = config.vertical_arm.clone();
             add_obj!(obj, VerticalArm, arm_idx);
             add_obj!(obj, VerticalArm2, arm_idx);
-
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
         let weight = config.joint_limits.weight;
@@ -325,7 +324,7 @@ impl ObjectiveMaster {
 
     /// Calculating only partial frames to improve efficiency
     fn optimized_grad(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        // TODO implement multi arm 
+        // TODO implement multi arm
         let mut grad: Vec<f64> = vec![0.; x.len()];
         let (frame_pos, frame_rot) = vars.robot.arms[0].get_frames_immutable(x);
         let frame_org: Vec<(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)> =

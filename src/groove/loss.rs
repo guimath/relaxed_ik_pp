@@ -1,25 +1,23 @@
-
 use serde::Deserialize;
- 
+
 /// * `t` center of the groove
 /// * `d` degree
 /// * `c` standard deviation of groove (width)
 /// * `f` penalty coefficient outside of groove
-/// * `g` polynomial degree 
+/// * `g` polynomial degree
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub struct GrooveParams {
     /// center of the groove
-    pub t: f64, 
-    /// degree 
-    pub d: i32, 
+    pub t: f64,
+    /// degree
+    pub d: i32,
     /// standard deviation of groove (width)
-    pub c: f64, 
+    pub c: f64,
     /// penalty coefficient outside of groove
-    pub f: f64, 
-    /// polynomial degree 
-    pub g: i32
+    pub f: f64,
+    /// polynomial degree
+    pub g: i32,
 }
-
 
 ///  * `l_bound` lower bound
 ///  * `u_bound` upper bound
@@ -29,17 +27,16 @@ pub struct GrooveParams {
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub struct SwampParams {
     /// lower bound
-    pub l_bound: f64, 
+    pub l_bound: f64,
     /// upper bound
-    pub u_bound: f64, 
+    pub u_bound: f64,
     /// height of walls
-    pub f1: f64, 
+    pub f1: f64,
     /// penalty coefficient outside of swamp
-    pub f2: f64, 
+    pub f2: f64,
     /// sharpness of walls
-    pub p1: i32
+    pub p1: i32,
 }
-
 
 /// * `g` center of the groove
 /// * `l_bound` lower bound
@@ -74,7 +71,7 @@ pub struct SwampGrooveParams {
 pub enum FuncType {
     Swamp(SwampParams),
     SwampGroove(SwampGrooveParams),
-    Groove(GrooveParams)
+    Groove(GrooveParams),
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
@@ -103,27 +100,19 @@ pub fn groove_loss(x_val: f64, p: GrooveParams) -> f64 {
     -((-(x_val - p.t).powi(p.d)) / (2.0 * p.c.powi(2))).exp() + p.f * (x_val - p.t).powi(p.g)
 }
 
-pub fn get_loss_desc(function:FuncType) -> String{
-    let s = format!("{:#?}",function);
-    let l : Vec<&str> = s.lines().collect();
+pub fn get_loss_desc(function: FuncType) -> String {
+    let s = format!("{:#?}", function);
+    let l: Vec<&str> = s.lines().collect();
     let lines: Vec<&str> = l.iter().map(|s| s.trim()).collect();
     let core = lines[2..lines.len() - 2].join(" ");
-    lines[0].to_string() + &core[..core.len()-1] + ")"
+    lines[0].to_string() + &core[..core.len() - 1] + ")"
 }
 
 #[inline]
-pub fn get_loss_func(function:FuncType) -> Box<dyn Fn(f64) -> f64> {
+pub fn get_loss_func(function: FuncType) -> Box<dyn Fn(f64) -> f64> {
     match function {
-        FuncType::Groove(p)=>{
-            Box::new(move |x:f64| groove_loss(x, p))
-        },
-        FuncType::Swamp(p)=>{
-            Box::new(move |x:f64| swamp_loss(x, p))
-        },
-        FuncType::SwampGroove(p)=>{
-            Box::new(move |x:f64| swamp_groove_loss(x, p))
-        }
+        FuncType::Groove(p) => Box::new(move |x: f64| groove_loss(x, p)),
+        FuncType::Swamp(p) => Box::new(move |x: f64| swamp_loss(x, p)),
+        FuncType::SwampGroove(p) => Box::new(move |x: f64| swamp_groove_loss(x, p)),
     }
 }
-
-

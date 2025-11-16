@@ -413,7 +413,6 @@ where
         self.__x_hb1 = self.__x_hf1.clone();
         self.__x_hf2 = self.__x_hf1.clone();
         self.__x_hb2 = self.__x_hf1.clone();
-
     }
 }
 

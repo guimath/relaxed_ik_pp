@@ -1,14 +1,12 @@
 use savefile_derive::Savefile;
 use thiserror::Error;
 
-
-
-pub fn point_from_str(point:&str) -> UnfeasibleTrajectoryPoint{
+pub fn point_from_str(point: &str) -> UnfeasibleTrajectoryPoint {
     match point {
-        "Start"=> UnfeasibleTrajectoryPoint::Start,
-        "WayPoint"=> UnfeasibleTrajectoryPoint::WayPoint,
-        "Goal"=> UnfeasibleTrajectoryPoint::Goal,
-        _ => panic!("Not a point")
+        "Start" => UnfeasibleTrajectoryPoint::Start,
+        "WayPoint" => UnfeasibleTrajectoryPoint::WayPoint,
+        "Goal" => UnfeasibleTrajectoryPoint::Goal,
+        _ => panic!("Not a point"),
     }
 }
 

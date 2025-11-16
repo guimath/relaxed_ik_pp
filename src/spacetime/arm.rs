@@ -17,9 +17,7 @@ pub struct RevoluteArm {
     get_quat: Vec<fn(f64) -> UnitQuaternion<f64>>,
 }
 impl RevoluteArm {
-    pub fn from_chain(
-        chain: k::SerialChain<f64>,
-    ) -> RevoluteArm {
+    pub fn from_chain(chain: k::SerialChain<f64>) -> RevoluteArm {
         let mut num_dof = 0;
         let mut get_quat: Vec<fn(f64) -> UnitQuaternion<f64>> = Vec::new();
         let mut lin_offsets: Vec<Vector3<f64>> = Vec::new();
@@ -27,7 +25,7 @@ impl RevoluteArm {
         let mut upper_joint_limits: Vec<f64> = Vec::new();
         let mut lower_joint_limits: Vec<f64> = Vec::new();
         let mut joint_axis: Vec<Unit<Vector3<f64>>> = Vec::new();
-        
+
         let mut first_link = true;
         let mut add_to_next = false;
         let mut rot_add: UnitQuaternion<f64> = UnitQuaternion::identity();
@@ -37,39 +35,38 @@ impl RevoluteArm {
             if first_link {
                 first_link = false;
                 return;
-            } 
+            }
             match joint.joint_type {
                 k::JointType::Fixed => {
                     let org = joint.origin();
                     if add_to_next {
                         rot_add *= org.rotation;
                         lin_add += org.translation.vector;
-                    }
-                    else {
+                    } else {
                         rot_add = org.rotation;
                         lin_add = org.translation.vector;
                     }
                     add_to_next = true;
                 }
                 k::JointType::Rotational { axis } => {
-                    num_dof +=1;
+                    num_dof += 1;
                     joint_axis.push(axis);
                     if *axis == *Vector3::x_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(val, 0., 0.))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(val, 0., 0.))
                     } else if *axis == *Vector3::y_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., val, 0.))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(0., val, 0.))
                     } else if *axis == *Vector3::z_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., 0., val))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(0., 0., val))
                     } else if *axis == -*Vector3::x_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(-val, 0., 0.))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(-val, 0., 0.))
                     } else if *axis == -*Vector3::y_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., -val, 0.))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(0., -val, 0.))
                     } else if *axis == -*Vector3::z_axis() {
-                        get_quat.push(|val:f64| UnitQuaternion::from_euler_angles(0., 0., -val))
+                        get_quat.push(|val: f64| UnitQuaternion::from_euler_angles(0., 0., -val))
                     } else {
                         panic!("Axis not recognized")
                     }
-                   
+
                     if joint.limits.is_none() {
                         lower_joint_limits.push(-999.0);
                         upper_joint_limits.push(999.0);
@@ -81,8 +78,8 @@ impl RevoluteArm {
                     lin_offsets.push(org.translation.vector);
                     rot_offsets.push(org.rotation);
                     if add_to_next {
-                        lin_offsets[num_dof-1] = lin_add + lin_offsets[num_dof-1];
-                        rot_offsets[num_dof-1] = rot_add * rot_offsets[num_dof-1];
+                        lin_offsets[num_dof - 1] = lin_add + lin_offsets[num_dof - 1];
+                        rot_offsets[num_dof - 1] = rot_add * rot_offsets[num_dof - 1];
                     }
                     add_to_next = false;
                 }
@@ -96,19 +93,17 @@ impl RevoluteArm {
         if add_to_next {
             lin_offsets.push(lin_add);
             rot_offsets.push(rot_add);
-        }
-        else {
+        } else {
             lin_offsets.push(Vector3::zeros());
             rot_offsets.push(UnitQuaternion::identity())
         }
 
-
         let mut is_rot_offset_null: Vec<bool> = Vec::new();
-        for i in 0..num_dof+1 {
+        for i in 0..num_dof + 1 {
             let r = rot_offsets[i];
             is_rot_offset_null.push(r[0] == 0.0 && r[1] == 0.0 && r[2] == 0.0)
-        } 
-        RevoluteArm{
+        }
+        RevoluteArm {
             num_dof,
             lin_offsets,
             rot_offsets,
@@ -116,17 +111,11 @@ impl RevoluteArm {
             joint_axis,
             upper_joint_limits,
             lower_joint_limits,
-            get_quat
+            get_quat,
         }
     }
 
-    pub fn get_frames_immutable(
-        &self,
-        x: &[f64],
-    ) -> (
-        Vec<Vector3<f64>>,
-        Vec<UnitQuaternion<f64>>,
-    ) {
+    pub fn get_frames_immutable(&self, x: &[f64]) -> (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) {
         let mut out_positions: Vec<Vector3<f64>> = Vec::new();
         let mut out_rot_quats: Vec<UnitQuaternion<f64>> = Vec::new();
 
@@ -144,27 +133,22 @@ impl RevoluteArm {
             rot_quat *= self.get_quat[i](x[i]);
             out_positions.push(pt);
             out_rot_quats.push(rot_quat);
-
         }
 
         //adding EE pose
-        out_positions.push(rot_quat*self.lin_offsets[self.num_dof] +pt);
-        out_rot_quats.push(rot_quat*self.rot_offsets[self.num_dof]);
+        out_positions.push(rot_quat * self.lin_offsets[self.num_dof] + pt);
+        out_rot_quats.push(rot_quat * self.rot_offsets[self.num_dof]);
 
         (out_positions, out_rot_quats)
     }
-    
+
     pub fn get_partial_frames_immutable(
         &self,
         x: &[f64],
         mut out_positions: Vec<Vector3<f64>>,
         mut out_rot_quats: Vec<UnitQuaternion<f64>>,
-        start:usize
-
-    ) -> (
-        Vec<Vector3<f64>>,
-        Vec<UnitQuaternion<f64>>,
-    ) {
+        start: usize,
+    ) -> (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) {
         let mut pt: Vector3<f64> = out_positions[start];
         let mut rot_quat: UnitQuaternion<f64> = out_rot_quats[start];
 
@@ -174,26 +158,30 @@ impl RevoluteArm {
                 rot_quat *= self.rot_offsets[i];
             }
             rot_quat *= self.get_quat[i](x[i]);
-            out_positions[i+1] = pt;
-            out_rot_quats[i+1] = rot_quat;
+            out_positions[i + 1] = pt;
+            out_rot_quats[i + 1] = rot_quat;
         }
 
         //adding EE pose
-        out_positions[self.num_dof+1] = rot_quat*self.lin_offsets[self.num_dof] +pt;
-        out_rot_quats[self.num_dof+1] = rot_quat*self.rot_offsets[self.num_dof];
+        out_positions[self.num_dof + 1] = rot_quat * self.lin_offsets[self.num_dof] + pt;
+        out_rot_quats[self.num_dof + 1] = rot_quat * self.rot_offsets[self.num_dof];
 
         (out_positions, out_rot_quats)
     }
-    
-    pub fn get_manipulability_with_frame(&self, x:&[f64], frame_pos:&[Vector3<f64>], frame_rot:&[UnitQuaternion<f64>]) -> f64 {
+
+    pub fn get_manipulability_with_frame(
+        &self,
+        x: &[f64],
+        frame_pos: &[Vector3<f64>],
+        frame_rot: &[UnitQuaternion<f64>],
+    ) -> f64 {
         let ee_pos = frame_pos[frame_pos.len() - 1];
-        
+
         let mut jacobian: DMatrix<f64> = DMatrix::zeros(6, x.len());
-        
+
         for i in 0..self.num_dof {
-            
-            let disp = ee_pos - frame_pos[i+1];
-            let p_axis = frame_rot[i+1] * self.joint_axis[i];
+            let disp = ee_pos - frame_pos[i + 1];
+            let p_axis = frame_rot[i + 1] * self.joint_axis[i];
             let linear = p_axis.cross(&disp);
             jacobian.set_column(
                 i,
@@ -201,19 +189,15 @@ impl RevoluteArm {
             );
         }
 
-        (jacobian.clone()*jacobian.transpose())
+        (jacobian.clone() * jacobian.transpose())
             .determinant()
             .sqrt()
     }
 
-    pub fn get_ee_pos_and_quat_immutable(
-        &self,
-        x: &[f64],
-    ) -> (Vector3<f64>, UnitQuaternion<f64>) {
+    pub fn get_ee_pos_and_quat_immutable(&self, x: &[f64]) -> (Vector3<f64>, UnitQuaternion<f64>) {
         let (joint_positions, joint_rot_quats) = self.get_frames_immutable(x);
         (joint_positions[self.num_dof], joint_rot_quats[self.num_dof])
     }
-
 }
 
 #[derive(Clone, Debug)]

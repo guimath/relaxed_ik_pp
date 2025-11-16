@@ -1,11 +1,11 @@
 use clap::Parser;
 use nalgebra::{Point2, Point3};
 use relaxed_ik_lib::relaxed_ik::RelaxedIK;
-use relaxed_ik_lib::Error;
 use relaxed_ik_lib::utils::config_parser::Config;
+use relaxed_ik_lib::Error;
 use serde::Serialize;
 use std::path::Path;
-use std::{convert::TryInto, path::PathBuf, sync::Arc, fs};
+use std::{convert::TryInto, fs, path::PathBuf, sync::Arc};
 use urdf_rs::Vec3;
 use urdf_viz::Viewer;
 use urdf_viz::{Action, Key, WindowEvent};
@@ -18,7 +18,6 @@ enum VisMode {
     /// Full simulation (movable target, ik & motion)
     #[default]
     Full,
-
 }
 
 /// args
@@ -63,18 +62,19 @@ p:  motion compute from current pose
 [toggles]
 "#;
 
-
-
-fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec<Vec<f64>>, Error>{
+fn get_motion(
+    rik: &mut RelaxedIK,
+    target: [f64; 3],
+    duration: f64,
+) -> Result<Vec<Vec<f64>>, Error> {
     let (mut q1, mut q2, _) = rik.grip(target)?;
     q1.reverse();
     q2.reverse();
-    let grip_plan: Vec<Vec<f64>> =
-        openrr_planner::interpolate(&q1.clone(), duration, 0.01)
-            .unwrap()
-            .into_iter()
-            .map(|point| point.position)
-            .collect();
+    let grip_plan: Vec<Vec<f64>> = openrr_planner::interpolate(&q1.clone(), duration, 0.01)
+        .unwrap()
+        .into_iter()
+        .map(|point| point.position)
+        .collect();
     let mut grip_plan2: Vec<Vec<f64>> = openrr_planner::interpolate(&q2.clone(), 1.0, 0.01)
         .unwrap()
         .into_iter()
@@ -84,7 +84,13 @@ fn get_motion(rik: &mut RelaxedIK, target:[f64 ; 3], duration:f64) -> Result<Vec
     Ok(grip_plan2)
 }
 
-fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_dist:bool, cost:&mut f64)-> Vec<f64> {
+fn get_ik(
+    rik: &mut RelaxedIK,
+    target: [f64; 3],
+    with_reset: bool,
+    with_approach_dist: bool,
+    cost: &mut f64,
+) -> Vec<f64> {
     if with_reset {
         rik.reset_origin();
     }
@@ -93,21 +99,20 @@ fn get_ik(rik: &mut RelaxedIK, target:[f64 ; 3], with_reset:bool, with_approach_
             rik.gripper_length + rik.config.approach_dist;
     }
     let res = rik.repeat_solve_ik(target); //x: -0.0012 y: -0.1129 z:0.0596
-    // let (pos, _quat) = rik.get_ee_pos();
-    // println!(
-    //     "x: {:.4} y: {:.4} z:{:.4}",
-    //     target[0] - pos[0],
-    //     target[1] - pos[1],
-    //     target[2] - pos[2]
-    // );
-    // println!("status ;  {:?}", _res);
+                                           // let (pos, _quat) = rik.get_ee_pos();
+                                           // println!(
+                                           //     "x: {:.4} y: {:.4} z:{:.4}",
+                                           //     target[0] - pos[0],
+                                           //     target[1] - pos[1],
+                                           //     target[2] - pos[2]
+                                           // );
+                                           // println!("status ;  {:?}", _res);
     if res.is_ok() {
         *cost = res.unwrap().cost_value()
-    }
-    else {
-        *cost= 1000.0;
+    } else {
+        *cost = 1000.0;
         println!("{res:?}");
-    } 
+    }
     rik.vars.robot.arms[0].lin_offsets[rik.last_joint_num][2] = rik.gripper_length;
     rik.vars.xopt.clone()
 }
@@ -124,11 +129,11 @@ fn main() {
     // urdf viz
     let v = 0.6;
     let (mut viewer, mut window) = Viewer::with_background_color("Example of grip", (v, v, v));
-    const ADD_GRAPH : bool = false;
+    const ADD_GRAPH: bool = false;
     if ADD_GRAPH {
-        let text=  window.add_texture(Path::new("ex_out/xarm6/data/pose1_ik.png"), "graph");
-        let mut rect = window.add_cube(1.3*2.0, 1.3*2.0, 0.01);
-        rect.set_local_translation(nalgebra::Translation3::new(0.,0.,0.3));
+        let text = window.add_texture(Path::new("ex_out/xarm6/data/pose1_ik.png"), "graph");
+        let mut rect = window.add_cube(1.3 * 2.0, 1.3 * 2.0, 0.01);
+        rect.set_local_translation(nalgebra::Translation3::new(0., 0., 0.3));
         rect.set_texture(text);
 
         // let text2=  window.add_texture(Path::new("ex_out/xarm6/data/pose1_ik_yz.png"), "graph2");
@@ -154,7 +159,8 @@ fn main() {
     viewer.update(robot_viz);
     // OBSTACLE
     let new_obst = conf
-        .urdf_paths.obstacle
+        .urdf_paths
+        .obstacle
         .expect("No obstacles file in config, add obstacles: FILE_PATH to config")
         .clone();
     let mut obstacle_description = urdf_rs::read_file(new_obst.clone()).unwrap();
@@ -221,7 +227,7 @@ fn main() {
         VisMode::Full => {
             // Wether to display control info menu
             let mut show_menu = true;
-            // Wether to compute ik with every move 
+            // Wether to compute ik with every move
             let mut live_compute = true;
             // Wether to reset between each ik (except for manual compute)
             let mut with_reset = true;
@@ -240,7 +246,13 @@ fn main() {
                 if cur_target != next_target {
                     // changed target
                     if live_compute {
-                        plans.push(get_ik(&mut rik,next_target, with_reset, with_approach_dist, &mut last_cost));
+                        plans.push(get_ik(
+                            &mut rik,
+                            next_target,
+                            with_reset,
+                            with_approach_dist,
+                            &mut last_cost,
+                        ));
                         cur_target = next_target;
                     }
                     // moving obstacle visual
@@ -249,29 +261,26 @@ fn main() {
                     target_robot.links[0].collision[0].origin.xyz = Vec3(next_target);
                     viewer.add_robot(&mut window, &target_robot, &Default::default());
                     // moving obstacle compute
-                    shapes[0].0.translation = nalgebra::Translation3::new(target[0], target[1], target[2]);
+                    shapes[0].0.translation =
+                        nalgebra::Translation3::new(target[0], target[1], target[2]);
                     let compound = ncollide3d::shape::Compound::new(shapes.clone());
                     rik.planner.obstacles = compound;
-                }   
-                
+                }
+
                 if !plans.is_empty() {
                     let plan = plans.pop().unwrap();
                     robot.set_joint_positions_clamped(&plan);
                     viewer.update(robot_viz);
-                    let pose = rik
-                        .vars
-                        .robot
-                        .get_ee_pos_and_quat_immutable(&plan);
+                    let pose = rik.vars.robot.get_ee_pos_and_quat_immutable(&plan);
                     last_gripper_pose = pose[0].0.as_slice().try_into().unwrap();
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
 
                 if show_menu {
-                    let lc_status =  if live_compute {"on"} else {"off"};
-                    let reset_status =  if with_reset {"on"} else {"off"};
-                    let pre_grasp_status =  if with_approach_dist {"on"} else {"off"};
-                    let how_to_use = 
-                        HOW_TO_USE_IK_STR.to_string() +
+                    let lc_status = if live_compute { "on" } else { "off" };
+                    let reset_status = if with_reset { "on" } else { "off" };
+                    let pre_grasp_status = if with_approach_dist { "on" } else { "off" };
+                    let how_to_use = HOW_TO_USE_IK_STR.to_string() +
                         format!("t: live compute ({lc_status})\nw: reset between ik ({reset_status})\ng: pre-grasp ik ({pre_grasp_status})\nm: menu (on)").as_str();
 
                     viewer.draw_text(
@@ -294,7 +303,7 @@ fn main() {
                         &info_color,
                     );
                 }
-                
+
                 for event in window.events().iter() {
                     if let WindowEvent::Key(code, Action::Press, _mods) = event.value {
                         match code {
@@ -308,18 +317,21 @@ fn main() {
                             Key::Equals => incr += incr / 10.0,
                             Key::Subtract => incr -= incr / 10.0,
                             Key::Minus => incr -= incr / 10.0,
-                            Key::P => {
-                                match get_motion(&mut rik,next_target, args.duration) {
-                                    Ok(plan) => {
-                                        plans.extend(plan);
-                                        cur_target = next_target;
-                                    }
-                                    Err(e) => println!("Error when calc motion {e}")
+                            Key::P => match get_motion(&mut rik, next_target, args.duration) {
+                                Ok(plan) => {
+                                    plans.extend(plan);
+                                    cur_target = next_target;
                                 }
-                                
-                            }
+                                Err(e) => println!("Error when calc motion {e}"),
+                            },
                             Key::C => {
-                                plans.push(get_ik(&mut rik,next_target, false, with_approach_dist, &mut last_cost));
+                                plans.push(get_ik(
+                                    &mut rik,
+                                    next_target,
+                                    false,
+                                    with_approach_dist,
+                                    &mut last_cost,
+                                ));
                                 cur_target = next_target;
                             }
                             Key::R => {

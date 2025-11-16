@@ -1,6 +1,6 @@
 use crate::spacetime::arm::RevoluteArm;
 use nalgebra;
-use nalgebra::{Vector3, UnitQuaternion};
+use nalgebra::{UnitQuaternion, Vector3};
 use urdf_rs;
 
 #[derive(Clone, Debug)]
@@ -13,9 +13,7 @@ pub struct Robot {
     pub lower_joint_limits: Vec<f64>,
 }
 
-
 impl Robot {
-
     pub fn from_urdf(urdf: &str, base_links: &[String], ee_links: &[String]) -> Self {
         // let chain = k::Chain::<f64>::from_urdf_file(urdf).unwrap();
         let description: urdf_rs::Robot = urdf_rs::read_from_string(urdf).unwrap();
@@ -28,10 +26,22 @@ impl Robot {
         let mut lower_joint_limits: Vec<f64> = Vec::new();
 
         for i in 0..num_chains {
-            let base_link = chain.find_link(base_links[i].as_str()).expect(format!("Base link \"{}\" was not found in robot urdf", base_links[i]).as_str());
-            let ee_link = chain.find_link(ee_links[i].as_str()).expect(format!("End effector link \"{}\" was not found in robot urdf", ee_links[i]).as_str());
+            let base_link = chain.find_link(base_links[i].as_str()).expect(
+                format!(
+                    "Base link \"{}\" was not found in robot urdf",
+                    base_links[i]
+                )
+                .as_str(),
+            );
+            let ee_link = chain.find_link(ee_links[i].as_str()).expect(
+                format!(
+                    "End effector link \"{}\" was not found in robot urdf",
+                    ee_links[i]
+                )
+                .as_str(),
+            );
             let serial_chain = k::SerialChain::from_end_to_root(ee_link, base_link);
-            let arm= RevoluteArm::from_chain(serial_chain);
+            let arm = RevoluteArm::from_chain(serial_chain);
             num_dof += arm.num_dof;
             chain_lengths.push(arm.num_dof);
             upper_joint_limits.extend(arm.upper_joint_limits.clone());
@@ -45,7 +55,7 @@ impl Robot {
             num_dof,
             chain_lengths,
             upper_joint_limits,
-            lower_joint_limits
+            lower_joint_limits,
         }
     }
 
@@ -70,7 +80,11 @@ impl Robot {
         out
     }
 
-    pub fn get_manipulability_with_frame(&self, x: &[f64], frame:&[(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)]) -> f64{
+    pub fn get_manipulability_with_frame(
+        &self,
+        x: &[f64],
+        frame: &[(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)],
+    ) -> f64 {
         let mut out = 0.0;
         let mut l = 0;
         let mut r = 0;

@@ -49,8 +49,4 @@ impl OptimizationEngineOpen {
         // println!("Panoc status: {:#?}", status);
         // println!("Panoc solution: {:#?}", x);
     }
-
-
-    
 }
-

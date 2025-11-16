@@ -81,16 +81,15 @@ fn q_to_dist(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>) -> f64 {
     delta
 }
 
-fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>, get_dist:bool) -> f64 {
-    if get_dist{
+fn q_to_value(q1: Vec<Vec<f64>>, q2: Vec<Vec<f64>>, get_dist: bool) -> f64 {
+    if get_dist {
         q_to_dist(q1, q2)
-    }
-    else {
+    } else {
         (q1.len() + q2.len()) as f64
     }
 }
 
-fn write_toml(graph_config_file:PathBuf, graph_config:&GraphConfig){
+fn write_toml(graph_config_file: PathBuf, graph_config: &GraphConfig) {
     let toml = toml::to_string(graph_config).unwrap();
     fs::write(graph_config_file, toml).expect("Could not write to graph_config file");
 }
@@ -176,11 +175,7 @@ fn main() {
                 for j in 0..args.sample_per_axis {
                     let i_val = start_x + i as f64 * step_x;
                     let j_val = start_y + j as f64 * step_y;
-                    target = [
-                        i_val,
-                        j_val,
-                        args.z_target,
-                    ];
+                    target = [i_val, j_val, args.z_target];
                     if i_val.powi(2) + j_val.powi(2) > radius_max_square {
                         continue;
                     }
@@ -201,14 +196,13 @@ fn main() {
             }
         }
         ScanMode::Motion => {
-            const GET_DIST:bool= false;
-            if GET_DIST{
+            const GET_DIST: bool = false;
+            if GET_DIST {
                 graph_config.data_offset = None;
                 graph_config.range_scale = Some([3.0, 20.0]);
                 graph_config.points_scale = None;
                 graph_config.scale_label = "C-Space distance to reach grasp pose (rad)".to_string();
-            }
-            else {
+            } else {
                 graph_config.data_offset = Some(-4.0);
                 graph_config.range_scale = Some([0.0, 10.0]);
                 graph_config.points_scale = Some(10);
@@ -229,7 +223,8 @@ fn main() {
                     }
                     num_calc += 1;
                     rik.reset_origin();
-                    shapes[0].0.translation = nalgebra::Translation3::new(target[0], target[1], target[2]);
+                    shapes[0].0.translation =
+                        nalgebra::Translation3::new(target[0], target[1], target[2]);
                     let compound = ncollide3d::shape::Compound::new(shapes.clone());
                     rik.planner.obstacles = compound;
                     let grip = rik.grip(target);

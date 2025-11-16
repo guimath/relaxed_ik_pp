@@ -1,6 +1,6 @@
+use crate::errors::point_from_str;
 use crate::utils::config_parser::Config;
 use crate::Error;
-use crate::errors::point_from_str;
 use nalgebra::{Isometry, Vector3};
 use ncollide3d::shape::{Compound, Cuboid, ShapeHandle};
 use openrr_planner::FromUrdf;
@@ -37,12 +37,15 @@ impl Planner {
             }
         };
 
-        let planner = openrr_planner::JointPathPlannerBuilder::from_urdf_robot_with_base_dir(description.clone(), None)
-            .collision_check_margin(0.01f64)
-            .reference_robot(robot.clone())
-            .step_length(0.05)
-            .finalize()
-            .unwrap();
+        let planner = openrr_planner::JointPathPlannerBuilder::from_urdf_robot_with_base_dir(
+            description.clone(),
+            None,
+        )
+        .collision_check_margin(0.01f64)
+        .reference_robot(robot.clone())
+        .step_length(0.05)
+        .finalize()
+        .unwrap();
 
         let solver = openrr_planner::JacobianIkSolver::default();
         let solver = openrr_planner::RandomInitializeIkSolver::new(solver, 100);
@@ -55,26 +58,32 @@ impl Planner {
         }
     }
 
-
-    
     pub fn get_motion(
         &mut self,
         x_start: Vec<f64>,
         x_goal: Vec<f64>,
     ) -> Result<Vec<Vec<f64>>, Error> {
-
         self.planner
             .plan_joints::<f64>(&self.using_joint_names, &x_start, &x_goal, &self.obstacles)
-            .map_err(|e| { match e {
-                openrr_planner::Error::Collision { point, collision_link_names } => {
-                    Error::Collision { point:point_from_str(format!("{point:?}").as_str()), collision_link_names }
-                } ,
-                openrr_planner::Error::SelfCollision { point, collision_link_names } => {
-                    Error::SelfCollision { point:point_from_str(format!("{point:?}").as_str()), collision_link_names }
-                } ,
+            .map_err(|e| match e {
+                openrr_planner::Error::Collision {
+                    point,
+                    collision_link_names,
+                } => Error::Collision {
+                    point: point_from_str(format!("{point:?}").as_str()),
+                    collision_link_names,
+                },
+                openrr_planner::Error::SelfCollision {
+                    point,
+                    collision_link_names,
+                } => Error::SelfCollision {
+                    point: point_from_str(format!("{point:?}").as_str()),
+                    collision_link_names,
+                },
                 openrr_planner::Error::PathPlanFail(_) => Error::PathPlanFail,
-                _ => Error::Other { error: "".to_string() }
-            }
+                _ => Error::Other {
+                    error: "".to_string(),
+                },
             })
     }
 }

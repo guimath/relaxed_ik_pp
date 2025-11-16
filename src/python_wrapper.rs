@@ -1,5 +1,5 @@
-use pyo3::prelude::*;
 use crate::relaxed_ik::RelaxedIK;
+use pyo3::prelude::*;
 
 #[pyclass]
 struct RelaxedWrapper {
@@ -10,7 +10,9 @@ struct RelaxedWrapper {
 impl RelaxedWrapper {
     #[new]
     pub fn new(path_to_setting: &str) -> Self {
-        Self{rik:RelaxedIK::new(path_to_setting)}
+        Self {
+            rik: RelaxedIK::new(path_to_setting),
+        }
     }
 
     pub fn grip(&mut self, pos_goals: [f64; 3]) -> Vec<Vec<f64>> {
@@ -19,7 +21,7 @@ impl RelaxedWrapper {
         q1
     }
 
-    pub fn ik(&mut self, pos_goals:[f64; 3])-> Vec<f64> {
+    pub fn ik(&mut self, pos_goals: [f64; 3]) -> Vec<f64> {
         self.rik.repeat_solve_ik(pos_goals).unwrap();
         self.rik.vars.xopt.clone()
     }

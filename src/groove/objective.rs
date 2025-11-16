@@ -4,12 +4,11 @@ use crate::groove::vars;
 use nalgebra::Vector3;
 use parry3d_f64::{query, shape};
 
-
 // For the best perf on a static set of objectives should like at Const Generic
 
-// trait alias equivalent 
+// trait alias equivalent
 pub trait LossFunction: Fn(f64) -> f64 {}
-impl <F> LossFunction for F where F:Fn(f64) -> f64{}
+impl<F> LossFunction for F where F: Fn(f64) -> f64 {}
 
 pub trait ObjectiveTrait {
     fn call(
@@ -68,15 +67,13 @@ pub trait ObjectiveTrait {
     } // manual diff = 0, finite diff = 1
 }
 
-
 #[derive(Debug)]
-pub struct VerticalArm<F: LossFunction>{
+pub struct VerticalArm<F: LossFunction> {
     pub arm_idx: usize,
     pub loss_fn: F,
 }
 
-impl <F:LossFunction> ObjectiveTrait for VerticalArm<F> 
-    {
+impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
     #[inline]
     fn call(
         &self,
@@ -88,9 +85,10 @@ impl <F:LossFunction> ObjectiveTrait for VerticalArm<F>
         // let euler = frames[0].1[last_elem].euler_angles();
         // println!("{} {}",euler.0,euler.2);
         // (self.loss_fn)(euler.0) + (self.loss_fn)(euler.2-1.57075)
-        
+
         let last_elem = frames[self.arm_idx].0.len() - 1;
-        let y_delta: f64 = frames[self.arm_idx].0[last_elem].y - frames[self.arm_idx].0[last_elem - 1].y;
+        let y_delta: f64 =
+            frames[self.arm_idx].0[last_elem].y - frames[self.arm_idx].0[last_elem - 1].y;
 
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
@@ -110,15 +108,13 @@ impl <F:LossFunction> ObjectiveTrait for VerticalArm<F>
     }
 }
 
-
 #[derive(Debug)]
-pub struct VerticalArm2<F: LossFunction>{
+pub struct VerticalArm2<F: LossFunction> {
     pub arm_idx: usize,
     pub loss_fn: F,
 }
 
-impl <F:LossFunction> ObjectiveTrait for VerticalArm2<F> 
-    {
+impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
     #[inline]
     fn call(
         &self,
@@ -130,9 +126,10 @@ impl <F:LossFunction> ObjectiveTrait for VerticalArm2<F>
         // let euler = frames[0].1[last_elem].euler_angles();
         // println!("{} {}",euler.0,euler.2);
         // (self.loss_fn)(euler.0) + (self.loss_fn)(euler.2-1.57075)
-        
+
         let last_elem = frames[self.arm_idx].0.len() - 1;
-        let x_delta: f64 = frames[self.arm_idx].0[last_elem].x - frames[self.arm_idx].0[last_elem - 1].x;
+        let x_delta: f64 =
+            frames[self.arm_idx].0[last_elem].x - frames[self.arm_idx].0[last_elem - 1].x;
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
@@ -151,16 +148,13 @@ impl <F:LossFunction> ObjectiveTrait for VerticalArm2<F>
     }
 }
 
-
 #[derive(Debug)]
-pub struct HorizontalArm<F: LossFunction>{
+pub struct HorizontalArm<F: LossFunction> {
     pub arm_idx: usize,
     pub loss_fn: F,
 }
 
-impl <F:LossFunction> ObjectiveTrait for HorizontalArm<F> 
-
-    {
+impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
     #[inline]
     fn call(
         &self,
@@ -195,7 +189,7 @@ pub struct HorizontalGripper<F: LossFunction> {
     pub loss_fn: F,
 }
 
-impl <F:LossFunction> ObjectiveTrait for HorizontalGripper<F> {
+impl<F: LossFunction> ObjectiveTrait for HorizontalGripper<F> {
     #[inline]
     fn call(
         &self,
@@ -219,12 +213,12 @@ impl <F:LossFunction> ObjectiveTrait for HorizontalGripper<F> {
     }
 }
 
-pub struct MatchEEPosiDoF<F: LossFunction>  {
+pub struct MatchEEPosiDoF<F: LossFunction> {
     pub arm_idx: usize,
     pub axis: usize,
     pub loss_fn: F,
 }
-impl <F: LossFunction>  ObjectiveTrait for MatchEEPosiDoF<F>{
+impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
     #[inline]
     fn call(
         &self,
@@ -258,15 +252,14 @@ impl <F: LossFunction>  ObjectiveTrait for MatchEEPosiDoF<F>{
     }
 }
 
-
 pub struct SelfCollision<F: LossFunction> {
     pub arm_idx: usize,
     pub first_link: usize,
     pub second_link: usize,
-    pub loss_fn: F
+    pub loss_fn: F,
 }
 
-impl <F: LossFunction> ObjectiveTrait for SelfCollision<F> {
+impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
     #[inline]
     fn call(
         &self,
@@ -297,7 +290,6 @@ impl <F: LossFunction> ObjectiveTrait for SelfCollision<F> {
         let dis =
             query::distance(&segment_pos, &segment_1, &segment_pos, &segment_2).unwrap() - 0.05;
         (self.loss_fn)(dis)
-        
     }
 
     fn call_lite(
@@ -310,11 +302,10 @@ impl <F: LossFunction> ObjectiveTrait for SelfCollision<F> {
     }
 }
 
-
 pub struct MaximizeManipulability<F: LossFunction> {
-    pub loss_fn: F
+    pub loss_fn: F,
 }
-impl <F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
+impl<F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
     #[inline]
     fn call(
         &self,
@@ -323,7 +314,6 @@ impl <F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
         frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
     ) -> f64 {
         let x_val = v.robot.get_manipulability_with_frame(x, &frames);
-
 
         (self.loss_fn)(x_val)
     }
@@ -339,9 +329,9 @@ impl <F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
 }
 pub struct EachJointLimits<F: LossFunction> {
     pub joint_idx: usize,
-    pub loss_fn: F
+    pub loss_fn: F,
 }
-impl <F:LossFunction> ObjectiveTrait for EachJointLimits<F> {
+impl<F: LossFunction> ObjectiveTrait for EachJointLimits<F> {
     #[inline]
     fn call(
         &self,
@@ -362,10 +352,10 @@ impl <F:LossFunction> ObjectiveTrait for EachJointLimits<F> {
     }
 }
 
-pub struct MinimizeVelocity <F: LossFunction> {
-    pub loss_fn: F
+pub struct MinimizeVelocity<F: LossFunction> {
+    pub loss_fn: F,
 }
-impl <F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
+impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
     #[inline]
     fn call(
         &self,
@@ -392,15 +382,15 @@ impl <F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
             x_val += (x[i] - v.xopt[i]).powi(2);
         }
         x_val = x_val.sqrt();
-        
+
         (self.loss_fn)(x_val)
     }
 }
 
 pub struct MinimizeAcceleration<F: LossFunction> {
-    pub loss_fn: F
+    pub loss_fn: F,
 }
-impl <F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
+impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
     #[inline]
     fn call(
         &self,
@@ -435,10 +425,10 @@ impl <F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
     }
 }
 
-pub struct MinimizeJerk<F: LossFunction>{
-    pub loss_fn: F
+pub struct MinimizeJerk<F: LossFunction> {
+    pub loss_fn: F,
 }
-impl <F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
+impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
     #[inline]
     fn call(
         &self,
@@ -478,8 +468,6 @@ impl <F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
         (self.loss_fn)(x_val)
     }
 }
-
-
 
 // pub struct TargetCollision {
 //     pub arm_idx: usize,

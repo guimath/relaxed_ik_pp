@@ -1,13 +1,13 @@
+use crate::groove::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use serde::Deserialize;
-use crate::groove::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
 #[derive(Deserialize, Debug, Clone)]
 pub struct UrdfPath {
-    pub robot:PathBuf,
+    pub robot: PathBuf,
     pub obstacle: Option<PathBuf>,
 }
 
@@ -19,7 +19,7 @@ pub struct LinksNames {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct ConfigParse{
+struct ConfigParse {
     urdf_paths: UrdfPath,
     /// List of package name used in urdf files
     packages: Option<Vec<String>>,
@@ -28,23 +28,23 @@ struct ConfigParse{
     starting_joint_values: Option<Vec<f64>>,
     // additional distance for pre grasp motion. Default = 0.03
     approach_dist: Option<f64>,
-    objectives: Option<ObjectivesConfigParse>
+    objectives: Option<ObjectivesConfigParse>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct DefaultConfigParse{
+struct DefaultConfigParse {
     approach_dist: f64,
-    objectives: ObjectivesConfig
+    objectives: ObjectivesConfig,
 }
 
 #[derive(Clone, Debug)]
-pub struct Config{
+pub struct Config {
     pub urdf_paths: UrdfPath,
     pub package_paths: HashMap<String, String>,
     pub links: LinksNames,
     pub starting_joint_values: Vec<f64>,
     pub approach_dist: f64,
-    pub objectives: ObjectivesConfig
+    pub objectives: ObjectivesConfig,
 }
 const DEFAULT_CONF_FILE: &str = include_str!("../../configs/default.toml");
 impl Config {
@@ -55,25 +55,27 @@ impl Config {
         let res: Result<ConfigParse, toml::de::Error> = toml::from_str(&contents);
         if let Err(e) = res {
             panic!("{}", e);
-        } 
+        }
         let mut conf = res.unwrap();
         let root = path_to_setting.parent().unwrap();
         conf.urdf_paths.robot = root.join(conf.urdf_paths.robot);
         if conf.urdf_paths.obstacle.is_some() {
             conf.urdf_paths.obstacle = Some(root.join(conf.urdf_paths.obstacle.unwrap()))
         }
-        
+
         // contents = String::new();
         // let mut file = File::open(DEFAULT_CONF_FILE).expect("Default config file not found");
         // let _res = file.read_to_string(&mut contents).unwrap();
         let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(&DEFAULT_CONF_FILE);
         if let Err(e) = res {
             panic!("{}", e);
-        } 
+        }
         let default = res.unwrap();
 
-        // Defaults : 
-        let starting_joints_values = conf.starting_joint_values.unwrap_or(vec![0.0f64; conf.links.used_joints.len()]);
+        // Defaults :
+        let starting_joints_values =
+            conf.starting_joint_values
+                .unwrap_or(vec![0.0f64; conf.links.used_joints.len()]);
         let mut package_paths: HashMap<String, String> = HashMap::new();
         if let Some(packages) = conf.packages {
             for package in packages {
@@ -82,13 +84,13 @@ impl Config {
             }
         }
         let approach_dist = conf.approach_dist.unwrap_or(default.approach_dist);
-        
-        //objectives 
+
+        //objectives
         let mut objectives = default.objectives;
         if let Some(new_objectives) = conf.objectives {
             macro_rules! or_default {
                 ($name:ident) => {{
-                    if let Some(a) =  new_objectives.$name {
+                    if let Some(a) = new_objectives.$name {
                         objectives.$name = a;
                     }
                 }};
@@ -107,14 +109,14 @@ impl Config {
             or_default!(self_collision);
             or_default!(vertical_arm);
         }
-        
-        Self{
-            urdf_paths:conf.urdf_paths,
+
+        Self {
+            urdf_paths: conf.urdf_paths,
             package_paths: package_paths,
             links: conf.links,
             starting_joint_values: starting_joints_values,
             approach_dist: approach_dist,
-            objectives: objectives
+            objectives: objectives,
         }
     }
 }

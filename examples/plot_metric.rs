@@ -42,27 +42,27 @@ struct GraphConfig {
     float_scale: Option<bool>,
 }
 
-struct MultiColorMap{
+struct MultiColorMap {
     cmaps: Vec<GradientColorMap<RGBColor>>,
     num: f64,
 }
 
 impl MultiColorMap {
-    fn new(cols:Vec<RGBColor>) -> Self {
+    fn new(cols: Vec<RGBColor>) -> Self {
         let mut cmaps = Vec::new();
 
         for i in 1..cols.len() {
-            cmaps.push(GradientColorMap::new_linear(cols[i-1], cols[i]))
+            cmaps.push(GradientColorMap::new_linear(cols[i - 1], cols[i]))
         }
         let num = cmaps.len() as f64;
 
-        Self{cmaps, num}
+        Self { cmaps, num }
     }
-    pub fn transform_single(&self, value:f64) -> RGBColor {
+    pub fn transform_single(&self, value: f64) -> RGBColor {
         let v = value * self.num;
         for i in 0..self.num as usize {
             if v <= (i as f64 + 1.0) {
-                return self.cmaps[i].transform_single(v - i as f64)
+                return self.cmaps[i].transform_single(v - i as f64);
             }
         }
         panic!("Value out of bounds [0; 1]");
@@ -87,7 +87,7 @@ fn main() {
     let range = config.range_scale.unwrap_or([-246.2, -200.0]);
     let val_offset = config.data_offset.unwrap_or(0.0);
     let points_num = config.points_scale.unwrap_or(100);
-    let float_scale= config.float_scale.unwrap_or(false);
+    let float_scale = config.float_scale.unwrap_or(false);
 
     let min_val = range[0];
     let max_val = range[1];
@@ -95,11 +95,11 @@ fn main() {
     let mut true_min = f64::INFINITY;
     let mut true_max = -f64::INFINITY;
 
-    let col =  ["#2cba00", "#a3ff00", "#fff400", "#ffa700", "#ff0000"];
+    let col = ["#2cba00", "#a3ff00", "#fff400", "#ffa700", "#ff0000"];
 
-    let mut cols : Vec<RGBColor> = Vec::new();
+    let mut cols: Vec<RGBColor> = Vec::new();
     for i in 0..col.len() {
-        cols.push( RGBColor::from_hex_code(col[i]).unwrap());
+        cols.push(RGBColor::from_hex_code(col[i]).unwrap());
     }
     // let cmap = GradientColorMap::new_linear(cols[0], cols[cols.len()-1]);
     let cmap = MultiColorMap::new(cols);
@@ -127,7 +127,7 @@ fn main() {
             UnfeasibleTrajectoryPoint::WayPoint => MAGENTA.to_rgba(),
         },
         Err(_) => BLUE.to_rgba(),
-        Ok(val) => val_to_color(val+val_offset),
+        Ok(val) => val_to_color(val + val_offset),
     };
 
     let data: Vec<Vec<Result<f64, Error>>> = load_file(args.data_file.clone(), 0).unwrap();
@@ -169,11 +169,11 @@ fn main() {
     {
         let root = SVGBackend::with_string(&mut svg_content, (1120, 1000)).into_drawing_area();
         root.fill(&WHITE).unwrap();
-        let (left, right) = root.split_horizontally(1020);//1020
-        // top margin = 10
-        // x label = 60
-        // bottom margin = 10
-        // delta = 80 -> size of img 1000 - 80 = 920
+        let (left, right) = root.split_horizontally(1020); //1020
+                                                           // top margin = 10
+                                                           // x label = 60
+                                                           // bottom margin = 10
+                                                           // delta = 80 -> size of img 1000 - 80 = 920
 
         // left margin = 10
         // y label = 80
@@ -207,33 +207,30 @@ fn main() {
         let mut chart = ChartBuilder::on(&right)
             .y_label_area_size(80)
             .margin_bottom(10)
-            .margin_top(10+60)
+            .margin_top(10 + 60)
             .build_cartesian_2d(0i32..1i32, 0i32..points_num as i32)
             .unwrap();
 
-
-
         if float_scale {
             chart
-            .configure_mesh()
-            .max_light_lines(4)
-            .y_label_offset(0)
-            .disable_x_mesh()
-            .disable_y_mesh()
-            .disable_x_axis()
-            .label_style(("CMU serif", 20))
-            .y_labels(10)
-            .y_label_formatter(&|r| {
-                format!(
-                    "{:.2} -",
-                    min_val + delta_val / (points_num as f64) * (*r as f64)
-                )
-            })
-            .y_desc(config.scale_label.unwrap_or("".to_string()))
-            .draw()
-            .unwrap();
-        }
-        else {
+                .configure_mesh()
+                .max_light_lines(4)
+                .y_label_offset(0)
+                .disable_x_mesh()
+                .disable_y_mesh()
+                .disable_x_axis()
+                .label_style(("CMU serif", 20))
+                .y_labels(10)
+                .y_label_formatter(&|r| {
+                    format!(
+                        "{:.2} -",
+                        min_val + delta_val / (points_num as f64) * (*r as f64)
+                    )
+                })
+                .y_desc(config.scale_label.unwrap_or("".to_string()))
+                .draw()
+                .unwrap();
+        } else {
             chart
                 .configure_mesh()
                 .max_light_lines(4)
@@ -259,15 +256,13 @@ fn main() {
             let color = cmap.transform_single((i as f64) / (points_num as f64));
             matrix[i] =
                 plotters::prelude::RGBColor(color.int_r(), color.int_g(), color.int_b()).to_rgba();
-            
         }
 
         chart
-            .draw_series(
-                matrix.iter().enumerate().map(|(y, color)| {
-                    Rectangle::new([(0, y as i32), (1, y as i32+5)], color.filled())
-                })
-            ).unwrap();
+            .draw_series(matrix.iter().enumerate().map(|(y, color)| {
+                Rectangle::new([(0, y as i32), (1, y as i32 + 5)], color.filled())
+            }))
+            .unwrap();
 
         let _ = root.present();
     }
