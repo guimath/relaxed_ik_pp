@@ -1,7 +1,4 @@
-use crate::spacetime::arm::RevoluteArm;
-use nalgebra;
-use nalgebra::{UnitQuaternion, Vector3};
-use urdf_rs;
+use crate::{spacetime::arm::RevoluteArm, utils::structs::*};
 
 #[derive(Clone, Debug)]
 pub struct Robot {
@@ -26,20 +23,18 @@ impl Robot {
         let mut lower_joint_limits: Vec<f64> = Vec::new();
 
         for i in 0..num_chains {
-            let base_link = chain.find_link(base_links[i].as_str()).expect(
-                format!(
+            let base_link = chain.find_link(base_links[i].as_str()).unwrap_or_else(|| {
+                panic!(
                     "Base link \"{}\" was not found in robot urdf",
                     base_links[i]
                 )
-                .as_str(),
-            );
-            let ee_link = chain.find_link(ee_links[i].as_str()).expect(
-                format!(
+            });
+            let ee_link = chain.find_link(ee_links[i].as_str()).unwrap_or_else(|| {
+                panic!(
                     "End effector link \"{}\" was not found in robot urdf",
                     ee_links[i]
                 )
-                .as_str(),
-            );
+            });
             let serial_chain = k::SerialChain::from_end_to_root(ee_link, base_link);
             let arm = RevoluteArm::from_chain(serial_chain);
             num_dof += arm.num_dof;
@@ -59,17 +54,8 @@ impl Robot {
         }
     }
 
-    pub fn get_frames_immutable(
-        &self,
-        x: &[f64],
-    ) -> Vec<(
-        Vec<nalgebra::Vector3<f64>>,
-        Vec<nalgebra::UnitQuaternion<f64>>,
-    )> {
-        let mut out: Vec<(
-            Vec<nalgebra::Vector3<f64>>,
-            Vec<nalgebra::UnitQuaternion<f64>>,
-        )> = Vec::new();
+    pub fn get_frames_immutable(&self, x: &[f64]) -> Vec<Pose> {
+        let mut out: Vec<Pose> = Vec::new();
         let mut l = 0;
         let mut r = 0;
         for i in 0..self.num_chains {
@@ -80,17 +66,14 @@ impl Robot {
         out
     }
 
-    pub fn get_manipulability_with_frame(
-        &self,
-        x: &[f64],
-        frame: &[(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)],
-    ) -> f64 {
+    pub fn get_manipulability_with_frame(&self, x: &[f64], frame: &[Pose]) -> f64 {
         let mut out = 0.0;
         let mut l = 0;
         let mut r = 0;
-        for i in 0..self.num_chains {
+        for (i, frame_i) in frame.iter().enumerate().take(self.num_chains) {
+            // for i in 0..self.num_chains {
             r += self.chain_lengths[i];
-            out += self.arms[i].get_manipulability_with_frame(&x[l..r], &frame[i].0, &frame[i].1);
+            out += self.arms[i].get_manipulability_with_frame(&x[l..r], &frame_i.0, &frame_i.1);
             l = r;
         }
         out

@@ -1,4 +1,4 @@
-use nalgebra;
+use crate::utils::structs::*;
 use nalgebra::{DMatrix, Unit, UnitQuaternion, Vector3, Vector6};
 
 #[derive(Clone, Debug)]
@@ -115,7 +115,7 @@ impl RevoluteArm {
         }
     }
 
-    pub fn get_frames_immutable(&self, x: &[f64]) -> (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) {
+    pub fn get_frames_immutable(&self, x: &[f64]) -> Pose {
         let mut out_positions: Vec<Vector3<f64>> = Vec::new();
         let mut out_rot_quats: Vec<UnitQuaternion<f64>> = Vec::new();
 
@@ -148,7 +148,7 @@ impl RevoluteArm {
         mut out_positions: Vec<Vector3<f64>>,
         mut out_rot_quats: Vec<UnitQuaternion<f64>>,
         start: usize,
-    ) -> (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) {
+    ) -> Pose {
         let mut pt: Vector3<f64> = out_positions[start];
         let mut rot_quat: UnitQuaternion<f64> = out_rot_quats[start];
 
@@ -332,13 +332,7 @@ impl Arm {
         }
     }
 
-    pub fn get_frames_immutable(
-        &self,
-        x: &[f64],
-    ) -> (
-        Vec<nalgebra::Vector3<f64>>,
-        Vec<nalgebra::UnitQuaternion<f64>>,
-    ) {
+    pub fn get_frames_immutable(&self, x: &[f64]) -> Pose {
         let mut out_positions: Vec<nalgebra::Vector3<f64>> = Vec::new();
         let mut out_rot_quats: Vec<nalgebra::UnitQuaternion<f64>> = Vec::new();
 

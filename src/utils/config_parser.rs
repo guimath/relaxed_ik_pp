@@ -66,14 +66,14 @@ impl Config {
         // contents = String::new();
         // let mut file = File::open(DEFAULT_CONF_FILE).expect("Default config file not found");
         // let _res = file.read_to_string(&mut contents).unwrap();
-        let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(&DEFAULT_CONF_FILE);
+        let res: Result<DefaultConfigParse, toml::de::Error> = toml::from_str(DEFAULT_CONF_FILE);
         if let Err(e) = res {
             panic!("{}", e);
         }
         let default = res.unwrap();
 
         // Defaults :
-        let starting_joints_values =
+        let starting_joint_values =
             conf.starting_joint_values
                 .unwrap_or(vec![0.0f64; conf.links.used_joints.len()]);
         let mut package_paths: HashMap<String, String> = HashMap::new();
@@ -112,11 +112,11 @@ impl Config {
 
         Self {
             urdf_paths: conf.urdf_paths,
-            package_paths: package_paths,
+            package_paths,
             links: conf.links,
-            starting_joint_values: starting_joints_values,
-            approach_dist: approach_dist,
-            objectives: objectives,
+            starting_joint_values,
+            approach_dist,
+            objectives,
         }
     }
 }

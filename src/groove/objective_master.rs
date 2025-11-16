@@ -1,7 +1,11 @@
-use crate::groove::loss::{self, FuncType, SwampType};
-use crate::groove::objective::*;
-use crate::groove::vars::RelaxedIKVars;
-use nalgebra::{UnitQuaternion, Vector3};
+use crate::{
+    groove::{
+        loss::{self, FuncType, SwampType},
+        objective::*,
+        vars::RelaxedIKVars,
+    },
+    utils::structs::*,
+};
 use serde::Deserialize;
 use std::fmt::Debug;
 
@@ -327,8 +331,7 @@ impl ObjectiveMaster {
         // TODO implement multi arm
         let mut grad: Vec<f64> = vec![0.; x.len()];
         let (frame_pos, frame_rot) = vars.robot.arms[0].get_frames_immutable(x);
-        let frame_org: Vec<(Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>)> =
-            vec![(frame_pos.clone(), frame_rot.clone())];
+        let frame_org: Vec<Pose> = vec![(frame_pos.clone(), frame_rot.clone())];
         let mut f_0 = 0.0;
         for i in 0..self.objectives.len() {
             f_0 += self.weight_priors[i] * self.objectives[i].call(x, vars, &frame_org);
@@ -337,8 +340,12 @@ impl ObjectiveMaster {
         for i in 0..x.len() {
             let mut x_h = x.to_vec();
             x_h[i] += 0.000001;
-            let guard_frame: (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) = vars.robot.arms[0]
-                .get_partial_frames_immutable(&x_h, frame_pos.clone(), frame_rot.clone(), i);
+            let guard_frame: Pose = vars.robot.arms[0].get_partial_frames_immutable(
+                &x_h,
+                frame_pos.clone(),
+                frame_rot.clone(),
+                i,
+            );
             let frame_org = vec![guard_frame];
             let mut f_h = 0.0;
             for j in 0..self.objectives.len() {

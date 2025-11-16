@@ -1,4 +1,4 @@
-use crate::groove::vars;
+use crate::{groove::vars, utils::structs::*};
 // use crate::utils::transformations::*;
 // use nalgebra::geometry::{Quaternion, UnitQuaternion};
 use nalgebra::Vector3;
@@ -15,21 +15,11 @@ pub trait ObjectiveTrait {
         &self,
         x: &[f64],               //joint values
         v: &vars::RelaxedIKVars, // general config variables (like target etx)
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>, // all frames poses
+        frames: &[Pose],         // all frames poses
     ) -> f64; // returns loss value
 
-    fn call_lite(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64;
-    fn gradient(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> (f64, Vec<f64>) {
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64;
+    fn gradient(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> (f64, Vec<f64>) {
         let mut grad: Vec<f64> = Vec::new();
         let f_0 = self.call(x, v, frames);
 
@@ -47,7 +37,7 @@ pub trait ObjectiveTrait {
         &self,
         x: &[f64],
         v: &vars::RelaxedIKVars,
-        ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+        ee_poses: &[SinglePose],
     ) -> (f64, Vec<f64>) {
         let mut grad: Vec<f64> = Vec::new();
         let f_0 = self.call_lite(x, v, ee_poses);
@@ -75,12 +65,7 @@ pub struct VerticalArm<F: LossFunction> {
 
 impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
     #[inline]
-    fn call(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         // let last_elem = frames[self.arm_idx].0.len() - 1;
         // let euler = frames[0].1[last_elem].euler_angles();
         // println!("{} {}",euler.0,euler.2);
@@ -95,12 +80,7 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
         (self.loss_fn)(y_delta)
     }
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
@@ -116,12 +96,7 @@ pub struct VerticalArm2<F: LossFunction> {
 
 impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
     #[inline]
-    fn call(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         // let last_elem = frames[self.arm_idx].0.len() - 1;
         // let euler = frames[0].1[last_elem].euler_angles();
         // println!("{} {}",euler.0,euler.2);
@@ -135,12 +110,7 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
         (self.loss_fn)(x_delta)
     }
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
@@ -156,12 +126,7 @@ pub struct HorizontalArm<F: LossFunction> {
 
 impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
     #[inline]
-    fn call(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let ee_pos = frames[self.arm_idx].0[last_elem].z;
         let prev_pos = frames[self.arm_idx].0[last_elem - 1].z;
@@ -171,12 +136,7 @@ impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
         (self.loss_fn)(x_val)
     }
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
@@ -191,23 +151,13 @@ pub struct HorizontalGripper<F: LossFunction> {
 
 impl<F: LossFunction> ObjectiveTrait for HorizontalGripper<F> {
     #[inline]
-    fn call(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let euler = frames[0].1[last_elem].euler_angles();
         (self.loss_fn)(euler.1)
     }
 
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let euler = ee_poses[self.arm_idx].1.euler_angles();
         (self.loss_fn)(euler.1)
     }
@@ -220,12 +170,7 @@ pub struct MatchEEPosiDoF<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
     #[inline]
-    fn call(
-        &self,
-        _x: &[f64],
-        v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, _x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let goal_quat = v.goal_quats[self.arm_idx];
         // E_{gc} = R_{gw} * T_{gw} * T_{wc} * R_{wc}, R_{wc} won't matter since we are only interested in the translation
@@ -241,12 +186,7 @@ impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
         // let bound = v.tolerances[self.arm_idx][self.axis];
         (self.loss_fn)(dist)
     }
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        v: &vars::RelaxedIKVars,
-        ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
         (self.loss_fn)(x_val)
     }
@@ -261,14 +201,9 @@ pub struct SelfCollision<F: LossFunction> {
 
 impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
-        for i in 0..x.len() {
-            if x[i].is_nan() {
+    fn call(&self, x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
+        for x_i in x {
+            if x_i.is_nan() {
                 return 10.0;
             }
         }
@@ -292,12 +227,7 @@ impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
         (self.loss_fn)(dis)
     }
 
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         (self.loss_fn)(1.0) // placeholder
     }
 }
@@ -307,23 +237,13 @@ pub struct MaximizeManipulability<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
-        let x_val = v.robot.get_manipulability_with_frame(x, &frames);
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
+        let x_val = v.robot.get_manipulability_with_frame(x, frames);
 
         (self.loss_fn)(x_val)
     }
 
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         0.0
     }
 }
@@ -333,21 +253,11 @@ pub struct EachJointLimits<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for EachJointLimits<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, x: &[f64], _v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         (self.loss_fn)(x[self.joint_idx])
     }
 
-    fn call_lite(
-        &self,
-        _x: &[f64],
-        _v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         0.0
     }
 }
@@ -357,12 +267,7 @@ pub struct MinimizeVelocity<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             x_val += (x[i] - v.xopt[i]).powi(2);
@@ -371,12 +276,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
         (self.loss_fn)(x_val)
     }
 
-    fn call_lite(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             x_val += (x[i] - v.xopt[i]).powi(2);
@@ -392,12 +292,7 @@ pub struct MinimizeAcceleration<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             let v1 = x[i] - v.xopt[i];
@@ -408,12 +303,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
         (self.loss_fn)(x_val)
     }
 
-    fn call_lite(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             let v1 = x[i] - v.xopt[i];
@@ -430,12 +320,7 @@ pub struct MinimizeJerk<F: LossFunction> {
 }
 impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
     #[inline]
-    fn call(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
-    ) -> f64 {
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             let v1 = x[i] - v.xopt[i];
@@ -449,12 +334,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
         (self.loss_fn)(x_val)
     }
 
-    fn call_lite(
-        &self,
-        x: &[f64],
-        v: &vars::RelaxedIKVars,
-        _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
-    ) -> f64 {
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         let mut x_val = 0.0;
         for i in 0..x.len() {
             let v1 = x[i] - v.xopt[i];
@@ -481,7 +361,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+//         frames: &[Pose],
 //     ) -> f64 {
 //         for i in 0..x.len() {
 //             if x[i].is_nan() {
@@ -517,7 +397,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         _v: &vars::RelaxedIKVars,
-//         _ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+//         _ee_poses: &[SinglePose],
 //     ) -> f64 {
 //         (self.loss_fn)(1.0)// placeholder
 //     }
@@ -538,7 +418,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+//         frames: &[Pose],
 //     ) -> f64 {
 //         let last_elem = frames[self.arm_idx].1.len() - 1;
 //         let ee_quat = frames[self.arm_idx].1[last_elem];
@@ -568,7 +448,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+//         ee_poses: &[SinglePose],
 //     ) -> f64 {
 //         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
 //         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
@@ -582,7 +462,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //     pub fn new(arm_idx: usize) -> Self {Self{arm_idx}}
 // }
 // impl ObjectiveTrait for EnvCollision {
-//     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>) -> f64 {
+//     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
 //         // let start = PreciseTime::now();\
 
 //         for i in 0..x.len() {
@@ -625,7 +505,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         groove_loss(x_val, 0., 2, 3.5, 0.00005, 4)
 //     }
 
-//     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>) -> f64 {
+//     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
 //         let x_val = 1.0; // placeholder
 //         groove_loss(x_val, 0., 2, 2.1, 0.0002, 4)
 //     }
@@ -640,7 +520,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+//         frames: &[Pose],
 //     ) -> f64 {
 //         let last_elem = frames[self.arm_idx].0.len() - 1;
 //         let x_val = (frames[self.arm_idx].0[last_elem] - v.goal_positions[self.arm_idx]).norm();
@@ -652,7 +532,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+//         ee_poses: &[SinglePose],
 //     ) -> f64 {
 //         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
 //         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
@@ -673,7 +553,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         frames: &Vec<(Vec<Vector3<f64>>, Vec<nalgebra::UnitQuaternion<f64>>)>,
+//         frames: &[Pose],
 //     ) -> f64 {
 //         let last_elem = frames[self.arm_idx].1.len() - 1;
 //         let tmp = Quaternion::new(
@@ -698,7 +578,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
 //         &self,
 //         _x: &[f64],
 //         v: &vars::RelaxedIKVars,
-//         ee_poses: &Vec<(Vector3<f64>, nalgebra::UnitQuaternion<f64>)>,
+//         ee_poses: &[SinglePose],
 //     ) -> f64 {
 //         let tmp = Quaternion::new(
 //             -ee_poses[self.arm_idx].1.w,
