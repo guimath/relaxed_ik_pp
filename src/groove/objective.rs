@@ -268,21 +268,22 @@ pub struct MinimizeVelocity<F: LossFunction> {
 impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            x_val += (x[i] - v.xopt[i]).powi(2);
-        }
-        x_val = x_val.sqrt();
+        let x_val = x
+            .iter()
+            .zip(v.xopt.iter())
+            .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            x_val += (x[i] - v.xopt[i]).powi(2);
-        }
-        x_val = x_val.sqrt();
-
+        let x_val = x
+            .iter()
+            .zip(v.xopt.iter())
+            .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 }
@@ -293,24 +294,22 @@ pub struct MinimizeAcceleration<F: LossFunction> {
 impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            let v1 = x[i] - v.xopt[i];
-            let v2 = v.xopt[i] - v.prev_state[i];
-            x_val += (v1 - v2).powi(2);
-        }
-        x_val = x_val.sqrt();
+        let x_val = x
+            .iter()
+            .zip(v.prev_state.iter())
+            .map(|(x_i, prev_state_i)| (x_i - prev_state_i).powi(2))
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            let v1 = x[i] - v.xopt[i];
-            let v2 = v.xopt[i] - v.prev_state[i];
-            x_val += (v1 - v2).powi(2);
-        }
-        x_val = x_val.sqrt();
+        let x_val = x
+            .iter()
+            .zip(v.xopt.iter())
+            .map(|(xi, xopt_i)| (xi - xopt_i).powi(2))
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 }
@@ -321,30 +320,41 @@ pub struct MinimizeJerk<F: LossFunction> {
 impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            let v1 = x[i] - v.xopt[i];
-            let v2 = v.xopt[i] - v.prev_state[i];
-            let v3 = v.prev_state[i] - v.prev_state2[i];
-            let a1 = v1 - v2;
-            let a2 = v2 - v3;
-            x_val += (a1 - a2).powi(2);
-        }
-        x_val = x_val.sqrt();
+        /* logic:
+            let v1 = xi - xopt_i;
+            let v2 = xopt_i - prev_state_i;
+            let v3 = prev_state_i - prev_state2_i;
+            let a1 = v1 - v2; // xi - xopt_i - (xopt_i - prev_state_i)
+                -> xi + prev_state_i -2 *xopt_i
+            let a2 = v2 - v3; // xopt_i - prev_state_i - (prev_state_i - prev_state2_i)
+                -> xopt_i + prev_state2_i - 2*prev_state_i
+            (a1 - a2).powi(2) // xi + prev_state_i -2 *xopt_i - (xopt_i + prev_state2_i - 2*prev_state_i)
+                ->xi + 3*prev_state_i -3*xopt_i - prev_state2_i
+        */
+        let x_val = x
+            .iter()
+            .zip(v.xopt.iter())
+            .zip(v.prev_state.iter())
+            .zip(v.prev_state2.iter())
+            .map(|(((xi, xopt_i), prev_state_i), prev_state2_i)| {
+                (xi + 3.0 * prev_state_i - 3.0 * xopt_i - prev_state2_i).powi(2)
+            })
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
-        let mut x_val = 0.0;
-        for i in 0..x.len() {
-            let v1 = x[i] - v.xopt[i];
-            let v2 = v.xopt[i] - v.prev_state[i];
-            let v3 = v.prev_state[i] - v.prev_state2[i];
-            let a1 = v1 - v2;
-            let a2 = v2 - v3;
-            x_val += (a1 - a2).powi(2);
-        }
-        x_val = x_val.sqrt();
+        let x_val = x
+            .iter()
+            .zip(v.xopt.iter())
+            .zip(v.prev_state.iter())
+            .zip(v.prev_state2.iter())
+            .map(|(((xi, xopt_i), prev_state_i), prev_state2_i)| {
+                (xi + 3.0 * prev_state_i - 3.0 * xopt_i - prev_state2_i).powi(2)
+            })
+            .sum::<f64>()
+            .sqrt();
         (self.loss_fn)(x_val)
     }
 }

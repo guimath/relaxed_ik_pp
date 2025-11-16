@@ -158,16 +158,17 @@ impl ObjectiveMaster {
         add_obj!(obj, MaximizeManipulability);
 
         let obj = config.self_collision;
-        for arm_idx in 0..num_chains {
-            if chain_lengths[arm_idx] < 2 {
+        for (chain_length, &arm_idx) in chain_lengths.iter().enumerate().take(num_chains) {
+            if chain_length < 2 {
                 continue;
             }
-            for first_link in 0..chain_lengths[arm_idx] - 2 {
-                for second_link in first_link + 2..chain_lengths[arm_idx] {
+            for first_link in 0..chain_length - 2 {
+                for second_link in first_link + 2..chain_length {
                     add_obj!(obj, SelfCollision, arm_idx, first_link, second_link);
                 }
             }
         }
+
         log::info!("objectives : \n{recap}");
         Self {
             objectives,
@@ -181,8 +182,8 @@ impl ObjectiveMaster {
     pub fn get_costs(&self, x: &[f64], vars: &RelaxedIKVars) -> Vec<f64> {
         let frames = vars.robot.get_frames_immutable(x);
         let mut out = vec![0.0_f64; self.objectives.len()];
-        for i in 0..self.objectives.len() {
-            out[i] = self.weight_priors[i] * self.objectives[i].call(x, vars, &frames);
+        for (i, objective) in self.objectives.iter().enumerate() {
+            out[i] = self.weight_priors[i] * objective.call(x, vars, &frames);
         }
         out
     }

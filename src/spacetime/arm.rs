@@ -99,8 +99,7 @@ impl RevoluteArm {
         }
 
         let mut is_rot_offset_null: Vec<bool> = Vec::new();
-        for i in 0..num_dof + 1 {
-            let r = rot_offsets[i];
+        for r in &rot_offsets {
             is_rot_offset_null.push(r[0] == 0.0 && r[1] == 0.0 && r[2] == 0.0)
         }
         RevoluteArm {
