@@ -1,5 +1,5 @@
 use crate::{
-    groove::{
+    core::{
         loss::{self, FuncType, SwampType},
         objective::*,
         vars::RelaxedIKVars,

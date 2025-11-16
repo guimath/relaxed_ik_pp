@@ -4,11 +4,11 @@ use std::time::Instant;
 use optimization_engine::core::SolverStatus;
 use optimization_engine::SolverError;
 // use pyo3::exceptions::PyOSError;
-use crate::groove::groove::OptimizationEngineOpen;
-use crate::groove::objective_master::ObjectiveMaster;
+use crate::core::groove::OptimizationEngineOpen;
+use crate::core::objective_master::ObjectiveMaster;
 use crate::motion::planner::Planner;
 use crate::Error;
-use crate::{groove::vars::RelaxedIKVars, utils::config_parser::Config};
+use crate::{core::vars::RelaxedIKVars, utils::config_parser::Config};
 use nalgebra::{Quaternion, UnitQuaternion, Vector3, Vector6};
 pub struct RelaxedIK {
     pub config: Config,

@@ -1,5 +1,5 @@
+pub mod core;
 pub mod errors;
-pub mod groove;
 pub mod motion;
 #[cfg(feature = "python_wrap")]
 pub mod python_wrapper;

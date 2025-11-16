@@ -1,8 +1,8 @@
-use crate::groove::objective_master::ObjectiveMaster;
-use crate::groove::vars::RelaxedIKVars;
+use crate::core::objective_master::ObjectiveMaster;
+use crate::core::vars::RelaxedIKVars;
 use optimization_engine::{constraints::*, panoc::*, *};
 
-use crate::groove::groove::core::SolverStatus;
+use crate::core::groove::core::SolverStatus;
 pub struct OptimizationEngineOpen {
     _dim: usize,
     cache: PANOCCache,

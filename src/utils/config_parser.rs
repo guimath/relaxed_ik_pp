@@ -1,4 +1,4 @@
-use crate::groove::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
+use crate::core::objective_master::{ObjectivesConfig, ObjectivesConfigParse};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Debug;

@@ -1,4 +1,4 @@
-use crate::{groove::vars, utils::structs::*};
+use crate::{core::vars, utils::structs::*};
 // use crate::utils::transformations::*;
 // use nalgebra::geometry::{Quaternion, UnitQuaternion};
 use nalgebra::Vector3;
