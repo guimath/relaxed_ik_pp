@@ -43,7 +43,7 @@ pub struct SwampParams {
 /// * `u_bound` upper bound
 /// * `c` standard deviation of groove (width)
 /// * `f1` depth of swamp
-/// * `f2` penalty coefficient outisde of swamp
+/// * `f2` penalty coefficient outside of swamp
 /// * `f3` height of walls
 /// * `p1` sharpness of walls
 #[derive(Deserialize, Debug, Clone, Copy)]
@@ -58,7 +58,7 @@ pub struct SwampGrooveParams {
     pub c: f64,
     /// depth of swamp
     pub f1: f64,
-    /// penalty coefficient outisde of swamp
+    /// penalty coefficient outside of swamp
     pub f2: f64,
     /// height of walls
     pub f3: f64,

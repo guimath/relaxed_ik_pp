@@ -225,13 +225,13 @@ fn main() {
         }
 
         VisMode::Full => {
-            // Wether to display control info menu
+            // Whether to display control info menu
             let mut show_menu = true;
-            // Wether to compute ik with every move
+            // Whether to compute ik with every move
             let mut live_compute = true;
-            // Wether to reset between each ik (except for manual compute)
+            // Whether to reset between each ik (except for manual compute)
             let mut with_reset = true;
-            // wether to compute ik with approach dist
+            // Whether to compute ik with approach dist
             let mut with_approach_dist = false;
             // target increment
             let mut incr = 0.1;

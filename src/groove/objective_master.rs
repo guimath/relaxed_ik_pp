@@ -337,9 +337,9 @@ impl ObjectiveMaster {
         for i in 0..x.len() {
             let mut x_h = x.to_vec();
             x_h[i] += 0.000001;
-            let gard_frame: (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) = vars.robot.arms[0]
+            let guard_frame: (Vec<Vector3<f64>>, Vec<UnitQuaternion<f64>>) = vars.robot.arms[0]
                 .get_partial_frames_immutable(&x_h, frame_pos.clone(), frame_rot.clone(), i);
-            let frame_org = vec![gard_frame];
+            let frame_org = vec![guard_frame];
             let mut f_h = 0.0;
             for j in 0..self.objectives.len() {
                 f_h += self.weight_priors[j] * self.objectives[j].call(&x_h, vars, &frame_org);

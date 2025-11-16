@@ -112,7 +112,7 @@ fn main() {
                         // rik.reset_origin();
                         let t1 = time::Instant::now();
                         let q = rik.planner.get_motion(x0, x1.clone());
-                        // let q2 = rik.planner.get_motion(x1, x2); //[1..]; // first alread
+                        // let q2 = rik.planner.get_motion(x1, x2); //[1..]; // first already
                         let dur = (time::Instant::now() - t1).as_micros() as u64;
                         if q.is_err() {
                             None
