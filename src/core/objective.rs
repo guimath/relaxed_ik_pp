@@ -9,7 +9,7 @@ use parry3d_f64::{query, shape};
 pub trait ObjectiveTrait {
     fn call(
         &self,
-        x: &[f64],               //joint values
+        x: &[f64],               // joint values
         v: &vars::RelaxedIKVars, // general config variables (like target etx)
         frames: &[Pose],         // all frames poses
     ) -> f64; // returns loss value
