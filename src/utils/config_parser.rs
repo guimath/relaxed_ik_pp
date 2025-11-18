@@ -86,29 +86,34 @@ impl Config {
         let approach_dist = conf.approach_dist.unwrap_or(default.approach_dist);
 
         //objectives
-        let mut objectives = default.objectives;
-        if let Some(new_objectives) = conf.objectives {
-            macro_rules! or_default {
-                ($name:ident) => {{
-                    if let Some(a) = new_objectives.$name {
-                        objectives.$name = a;
+        let objectives = if let Some(new_objectives) = conf.objectives {
+            macro_rules! merge_objectives {
+                ($($field:ident),* $(,)?) => {
+                    ObjectivesConfig {
+                        $(
+                            $field: new_objectives.$field.unwrap_or(default.objectives.$field),
+                        )*
                     }
-                }};
+                };
             }
-            // TODO add macro to auto iterate
-            or_default!(x_pos);
-            or_default!(y_pos);
-            or_default!(z_pos);
-            or_default!(horizontal_grip);
-            or_default!(horizontal_arm);
-            or_default!(joint_limits);
-            or_default!(minimize_velocity);
-            or_default!(minimize_acceleration);
-            or_default!(minimize_jerk);
-            or_default!(maximize_manipulability);
-            or_default!(self_collision);
-            or_default!(vertical_arm);
-        }
+            merge_objectives!(
+                x_pos,
+                y_pos,
+                z_pos,
+                horizontal_grip,
+                horizontal_arm,
+                joint_limits,
+                minimize_velocity,
+                minimize_acceleration,
+                minimize_jerk,
+                maximize_manipulability,
+                self_collision,
+                vertical_arm,
+                cardinal_directions,
+            )
+        } else {
+            default.objectives
+        };
 
         Self {
             urdf_paths: conf.urdf_paths,

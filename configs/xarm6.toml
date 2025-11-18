@@ -1,21 +1,24 @@
 
+approach_dist = 0.05
 packages = ["xarm_description", "robotiq_85_description"]
-starting_joint_values= [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
-approach_dist= 0.05 
+starting_joint_values = [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
 
 [urdf_paths]
-robot= "urdfs/xarm6_grip.urdf"
-obstacle= "urdfs/obstacles.urdf"
+	obstacle = "urdfs/obstacles.urdf"
+	robot = "urdfs/xarm6_grip.urdf"
 
 [links]
-base= ["link_base"]
-ee= ["gripper_center_link"]
-used_joints= [
-    "joint1",
-    "joint2",
-    "joint3",
-    "joint4",
-    "joint5",
-    "joint6",
-]
+	base = ["link_base"]
+	ee = ["gripper_center_link"]
+	used_joints = [
+		"joint1",
+		"joint2",
+		"joint3",
+		"joint4",
+		"joint5",
+		"joint6",
+	]
 
+[objectives.cardinal_directions]
+	func = { Groove = { t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2 } }
+	weight = 50
