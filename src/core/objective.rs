@@ -1,14 +1,10 @@
-use crate::{core::vars, utils::structs::*};
-// use crate::utils::transformations::*;
-// use nalgebra::geometry::{Quaternion, UnitQuaternion};
+use crate::{
+    core::{loss::LossFunction, vars},
+    utils::structs::*,
+};
+
 use nalgebra::Vector3;
 use parry3d_f64::{query, shape};
-
-// For the best perf on a static set of objectives should like at Const Generic
-
-// trait alias equivalent
-pub trait LossFunction: Fn(f64) -> f64 {}
-impl<F> LossFunction for F where F: Fn(f64) -> f64 {}
 
 pub trait ObjectiveTrait {
     fn call(
@@ -57,6 +53,51 @@ pub trait ObjectiveTrait {
     } // manual diff = 0, finite diff = 1
 }
 
+pub struct CardinalDirectionObjective<F: LossFunction> {
+    pub arm_idx: usize,
+    pub target_direction: [f64; 3], // Unit vector for the desired direction
+    pub loss_fn: F,
+}
+
+impl<F: LossFunction> ObjectiveTrait for CardinalDirectionObjective<F> {
+    #[inline]
+    fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
+        let last_elem = frames[self.arm_idx].0.len() - 1;
+
+        // Get the direction vector of the end effector
+        let ee_pos = frames[self.arm_idx].0[last_elem];
+        let prev_pos = frames[self.arm_idx].0[last_elem - 1];
+        let direction = [
+            ee_pos.x - prev_pos.x,
+            ee_pos.y - prev_pos.y,
+            ee_pos.z - prev_pos.z,
+        ];
+
+        // Normalize the direction vector
+        let norm = (direction[0].powi(2) + direction[1].powi(2) + direction[2].powi(2)).sqrt();
+        let normalized_direction = [
+            direction[0] / norm,
+            direction[1] / norm,
+            direction[2] / norm,
+        ];
+
+        // Compute the dot product with the target direction
+        let dot_product = normalized_direction
+            .iter()
+            .zip(self.target_direction.iter())
+            .map(|(a, b)| a * b)
+            .sum::<f64>();
+
+        // Use the loss function to penalize deviation from the target direction
+        self.loss_fn.compute(1.0 - dot_product) // 1.0 - dot_product is the deviation
+    }
+
+    fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
+        // Implement a lightweight version if needed
+        0.0
+    }
+}
+
 #[derive(Debug)]
 pub struct VerticalArm<F: LossFunction> {
     pub arm_idx: usize,
@@ -78,13 +119,13 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        (self.loss_fn)(y_delta)
+        self.loss_fn.compute(y_delta)
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -108,13 +149,13 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        (self.loss_fn)(x_delta)
+        self.loss_fn.compute(x_delta)
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -134,13 +175,13 @@ impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -154,12 +195,12 @@ impl<F: LossFunction> ObjectiveTrait for HorizontalGripper<F> {
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let euler = frames[0].1[last_elem].euler_angles();
-        (self.loss_fn)(euler.1)
+        self.loss_fn.compute(euler.1)
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let euler = ee_poses[self.arm_idx].1.euler_angles();
-        (self.loss_fn)(euler.1)
+        self.loss_fn.compute(euler.1)
     }
 }
 
@@ -184,11 +225,11 @@ impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
         let t_gc = goal_quat.inverse() * t_gw_t_wc;
         let dist: f64 = t_gc[self.axis];
         // let bound = v.tolerances[self.arm_idx][self.axis];
-        (self.loss_fn)(dist)
+        self.loss_fn.compute(dist)
     }
     fn call_lite(&self, _x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -224,11 +265,11 @@ impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
 
         let dis =
             query::distance(&segment_pos, &segment_1, &segment_pos, &segment_2).unwrap() - 0.05;
-        (self.loss_fn)(dis)
+        self.loss_fn.compute(dis)
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
-        (self.loss_fn)(1.0) // placeholder
+        self.loss_fn.compute(1.0)
     }
 }
 
@@ -240,7 +281,7 @@ impl<F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let x_val = v.robot.get_manipulability_with_frame(x, frames);
 
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -254,7 +295,7 @@ pub struct EachJointLimits<F: LossFunction> {
 impl<F: LossFunction> ObjectiveTrait for EachJointLimits<F> {
     #[inline]
     fn call(&self, x: &[f64], _v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
-        (self.loss_fn)(x[self.joint_idx])
+        self.loss_fn.compute(x[self.joint_idx])
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -274,7 +315,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
             .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -284,7 +325,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
             .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -300,7 +341,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
             .map(|(x_i, prev_state_i)| (x_i - prev_state_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -310,7 +351,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
             .map(|(xi, xopt_i)| (xi - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
 
@@ -341,7 +382,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
             })
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -355,252 +396,6 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
             })
             .sum::<f64>()
             .sqrt();
-        (self.loss_fn)(x_val)
+        self.loss_fn.compute(x_val)
     }
 }
-
-// pub struct TargetCollision {
-//     pub arm_idx: usize,
-//     pub link: usize,
-//     pub loss_fn: Box<dyn Fn(f64) -> f64>
-// }
-
-// impl ObjectiveTrait for TargetCollision {
-//     #[inline]
-//     fn call(
-//         &self,
-//         x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         frames: &[Pose],
-//     ) -> f64 {
-//         for i in 0..x.len() {
-//             if x[i].is_nan() {
-//                 return 10.0;
-//             }
-//         }
-
-//         // let mut x_val: f64 = 0.0;
-//         // let link_radius = 0.05;
-
-//         let start_pt_1 = nalgebra::Point3::from(frames[self.arm_idx].0[self.link]);
-//         let end_pt_1 = nalgebra::Point3::from(frames[self.arm_idx].0[self.link + 1]);
-//         let segment_1 = shape::Segment::new(start_pt_1, end_pt_1);
-
-//         let goal_center: Vector3<f64> = v.goal_positions[self.arm_idx];
-//         let goal_top = Vector3::new(goal_center.x, goal_center.y, goal_center.z + 1.0);
-//         let goal_bot = Vector3::new(goal_center.x, goal_center.y, goal_center.z - 1.0);
-
-//         let start_pt_2 = nalgebra::Point3::from(goal_top);
-//         let end_pt_2 = nalgebra::Point3::from(goal_bot);
-//         let segment_2 = shape::Segment::new(start_pt_2, end_pt_2);
-
-//         let segment_pos = nalgebra::one();
-//         // println!("start_pt_1:{} end_pt_1:{}  start_pt_2:{} end_pt_2:{} x: {:?}", start_pt_1, end_pt_1, start_pt_2, end_pt_2, x);
-
-//         let dis =
-//             query::distance(&segment_pos, &segment_1, &segment_pos, &segment_2).unwrap() - 0.05;
-//         (self.loss_fn)(dis)
-
-//     }
-
-//     fn call_lite(
-//         &self,
-//         _x: &[f64],
-//         _v: &vars::RelaxedIKVars,
-//         _ee_poses: &[SinglePose],
-//     ) -> f64 {
-//         (self.loss_fn)(1.0)// placeholder
-//     }
-// }
-
-// pub struct MatchEERotaDoF {
-//     pub arm_idx: usize,
-//     pub axis: usize,
-// }
-// impl MatchEERotaDoF {
-//     pub fn new(arm_idx: usize, axis: usize) -> Self {
-//         Self { arm_idx, axis }
-//     }
-// }
-// impl ObjectiveTrait for MatchEERotaDoF {
-//     #[inline]
-//     fn call(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         frames: &[Pose],
-//     ) -> f64 {
-//         let last_elem = frames[self.arm_idx].1.len() - 1;
-//         let ee_quat = frames[self.arm_idx].1[last_elem];
-//         let goal_quat = v.goal_quats[self.arm_idx];
-//         let rotation = goal_quat.inverse() * ee_quat;
-
-//         // let euler = rotation.euler_angles();
-//         // println!("axisAngle: {:?} {:?}", euler, axisAngle);
-//         let scaled_axis = rotation.scaled_axis();
-
-//         let mut angle: f64 = 0.0;
-//         angle += scaled_axis[self.axis].abs();
-
-//         let bound = v.tolerances[self.arm_idx][self.axis + 3];
-
-//         if bound <= 1e-2 {
-//             groove_loss(angle, 0., 2, 0.1, 10.0, 2)
-//         } else if bound >= 3.14159260 {
-//             swamp_loss(angle, -bound, bound, 100.0, 0.1, 20)
-//         } else {
-//             swamp_groove_loss(angle, 0.0, -bound, bound, bound * 2.0, 1.0, 0.01, 100.0, 20)
-//             // swamp_groove_loss(angle, 0.0, -bound, bound, 10.0, 1.0, 0.01, 100.0, 20)
-//         }
-//     }
-
-//     fn call_lite(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         ee_poses: &[SinglePose],
-//     ) -> f64 {
-//         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
-//         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
-//     }
-// }
-
-// pub struct EnvCollision {
-//     pub arm_idx: usize
-// }
-// impl EnvCollision {
-//     pub fn new(arm_idx: usize) -> Self {Self{arm_idx}}
-// }
-// impl ObjectiveTrait for EnvCollision {
-//     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
-//         // let start = PreciseTime::now();\
-
-//         for i in 0..x.len() {
-//             if (x[i].is_nan()) {
-//                 return 10.0
-//             }
-//         }
-
-//         let mut x_val: f64 = 0.0;
-//         let link_radius = v.env_collision.link_radius;
-//         let penalty_cutoff: f64 = link_radius * 2.0;
-//         let a = penalty_cutoff.powi(2);
-//         for (option, score) in &v.env_collision.active_obstacles[self.arm_idx] {
-//             if let Some(handle) = option {
-//                 let mut sum: f64 = 0.0;
-//                 let obstacle = v.env_collision.world.objects.get(*handle).unwrap();
-//                 let last_elem = frames[self.arm_idx].0.len() - 1;
-//                 for i in 0..last_elem {
-//                     let mut start_pt = Point3::from(frames[self.arm_idx].0[i]);
-//                      // hard coded for ur5
-//                     if (i == last_elem - 1) {
-//                         start_pt = Point3::from(frames[self.arm_idx].0[i] + 0.2 * (frames[self.arm_idx].0[i] - frames[self.arm_idx].0[i + 1]));
-//                     }
-
-//                     let end_pt = Point3::from(frames[self.arm_idx].0[i + 1]);
-//                     let segment = shape::Segment::new(start_pt, end_pt);
-//                     let segment_pos = nalgebra::one();
-//                     let dis = query::distance(obstacle.position(), obstacle.shape().deref(), &segment_pos, &segment) - link_radius;
-//                     // println!("Obstacle: {}, Link: {}, Distance: {:?}", obstacle.data().name, i, dis);
-//                     sum += a / (dis + link_radius).powi(2);
-//                 }
-//                 // println!("OBJECTIVE -> {:?}, Sum: {:?}", obstacle.data().name, sum);
-//                 x_val += sum;
-//             }
-//         }
-
-//         // let end = PreciseTime::now();
-//         // println!("Obstacles calculating takes {}", start.to(end));
-
-//         groove_loss(x_val, 0., 2, 3.5, 0.00005, 4)
-//     }
-
-//     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
-//         let x_val = 1.0; // placeholder
-//         groove_loss(x_val, 0., 2, 2.1, 0.0002, 4)
-//     }
-// }
-
-// pub struct MatchEEPosGoals {
-//     pub arm_idx: usize,
-// }
-// impl ObjectiveTrait for MatchEEPosGoals {
-//     #[inline]
-//     fn call(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         frames: &[Pose],
-//     ) -> f64 {
-//         let last_elem = frames[self.arm_idx].0.len() - 1;
-//         let x_val = (frames[self.arm_idx].0[last_elem] - v.goal_positions[self.arm_idx]).norm();
-
-//         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
-//     }
-
-//     fn call_lite(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         ee_poses: &[SinglePose],
-//     ) -> f64 {
-//         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
-//         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
-//     }
-// }
-
-// pub struct MatchEEQuatGoals {
-//     pub arm_idx: usize,
-// }
-// impl MatchEEQuatGoals {
-//     pub fn new(arm_idx: usize) -> Self {
-//         Self { arm_idx }
-//     }
-// }
-// impl ObjectiveTrait for MatchEEQuatGoals {
-//     #[inline]
-//     fn call(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         frames: &[Pose],
-//     ) -> f64 {
-//         let last_elem = frames[self.arm_idx].1.len() - 1;
-//         let tmp = Quaternion::new(
-//             -frames[self.arm_idx].1[last_elem].w,
-//             -frames[self.arm_idx].1[last_elem].i,
-//             -frames[self.arm_idx].1[last_elem].j,
-//             -frames[self.arm_idx].1[last_elem].k,
-//         );
-//         let ee_quat2 = UnitQuaternion::from_quaternion(tmp);
-
-//         let disp = angle_between_quaternion(
-//             v.goal_quats[self.arm_idx],
-//             frames[self.arm_idx].1[last_elem],
-//         );
-//         let disp2 = angle_between_quaternion(v.goal_quats[self.arm_idx], ee_quat2);
-//         let x_val = disp.min(disp2);
-
-//         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
-//     }
-
-//     fn call_lite(
-//         &self,
-//         _x: &[f64],
-//         v: &vars::RelaxedIKVars,
-//         ee_poses: &[SinglePose],
-//     ) -> f64 {
-//         let tmp = Quaternion::new(
-//             -ee_poses[self.arm_idx].1.w,
-//             -ee_poses[self.arm_idx].1.i,
-//             -ee_poses[self.arm_idx].1.j,
-//             -ee_poses[self.arm_idx].1.k,
-//         );
-//         let ee_quat2 = UnitQuaternion::from_quaternion(tmp);
-
-//         let disp = angle_between_quaternion(v.goal_quats[self.arm_idx], ee_poses[self.arm_idx].1);
-//         let disp2 = angle_between_quaternion(v.goal_quats[self.arm_idx], ee_quat2);
-//         let x_val = disp.min(disp2);
-//         groove_loss(x_val, 0., 2, 0.1, 10.0, 2)
-//     }
-// }

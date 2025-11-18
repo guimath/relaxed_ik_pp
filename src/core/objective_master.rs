@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        loss::{self, FuncType, SwampType},
+        loss::{FuncType, SwampType},
         objective::*,
         vars::RelaxedIKVars,
     },
@@ -32,6 +32,7 @@ pub struct ObjectivesConfigParse {
     pub horizontal_grip: Option<ObjectiveType>,
     pub horizontal_arm: Option<ObjectiveType>,
     pub vertical_arm: Option<ObjectiveType>,
+    pub cardinal_directions: Option<ObjectiveType>,
     pub joint_limits: Option<ObjectiveSwamp>,
     pub minimize_velocity: Option<ObjectiveType>,
     pub minimize_acceleration: Option<ObjectiveType>,
@@ -49,6 +50,7 @@ pub struct ObjectivesConfig {
     pub horizontal_grip: ObjectiveType,
     pub horizontal_arm: ObjectiveType,
     pub vertical_arm: ObjectiveType,
+    pub cardinal_directions: ObjectiveType,
     pub joint_limits: ObjectiveSwamp,
     pub minimize_velocity: ObjectiveType,
     pub minimize_acceleration: ObjectiveType,
@@ -72,9 +74,9 @@ pub struct ObjectivesConfig {
 macro_rules! box_in {
     ($func:expr, $obj_struct:ident $(, $params:tt)*) => {{
         let bx : Box<dyn ObjectiveTrait + Send> = match $func {
-            FuncType::Swamp(p)       => {let loss_fn = move |x| loss::swamp_loss(x, p);        Box::new($obj_struct{$($params,)* loss_fn})},
-            FuncType::SwampGroove(p) => {let loss_fn = move |x| loss::swamp_groove_loss(x, p); Box::new($obj_struct{$($params,)* loss_fn})},
-            FuncType::Groove(p)      => {let loss_fn = move |x| loss::groove_loss(x, p);       Box::new($obj_struct{$($params,)* loss_fn})},
+            FuncType::Swamp(loss_fn)       => {Box::new($obj_struct{$($params,)* loss_fn})},
+            FuncType::SwampGroove(loss_fn) => {Box::new($obj_struct{$($params,)* loss_fn})},
+            FuncType::Groove(loss_fn)      => {Box::new($obj_struct{$($params,)* loss_fn})},
         };
         bx
     }};
@@ -130,6 +132,9 @@ impl ObjectiveMaster {
             let obj = config.vertical_arm.clone();
             add_obj!(obj, VerticalArm, arm_idx);
             add_obj!(obj, VerticalArm2, arm_idx);
+            let target_direction = [0.0, 0.0, 1.0];
+            let obj = config.cardinal_directions.clone();
+            add_obj!(obj, CardinalDirectionObjective, arm_idx, target_direction);
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
         let weight = config.joint_limits.weight;

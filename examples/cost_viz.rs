@@ -1,4 +1,5 @@
 use plotters::prelude::*;
+use relaxed_ik_lib::core::loss::LossFunction;
 use serde::Deserialize;
 
 use clap::Parser;
@@ -52,18 +53,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = res.unwrap();
     const COLORS: [RGBColor; 3] = [RED, BLACK, BLUE];
     let mut desc: Vec<String> = vec![];
-    let mut test_func: Vec<Box<dyn Fn(f64) -> f64>> = vec![];
+    let mut test_func: Vec<Box<dyn LossFunction>> = vec![];
 
-    desc.push(loss::get_loss_desc(config.function1));
-    test_func.push(loss::get_loss_func(config.function1));
+    desc.push(format!("{:?}", config.function1));
+    test_func.push(config.function1.into_inner());
 
     if let Some(func) = config.function2 {
-        desc.push(loss::get_loss_desc(func));
-        test_func.push(loss::get_loss_func(func));
+        desc.push(format!("{:?}", func));
+        test_func.push(func.into_inner());
     }
     if let Some(func) = config.function3 {
-        desc.push(loss::get_loss_desc(func));
-        test_func.push(loss::get_loss_func(func));
+        desc.push(format!("{:?}", func));
+        test_func.push(func.into_inner());
     }
 
     let nb_plot = desc.len();
@@ -98,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .draw_series(LineSeries::new(
                 (0..=nb_points)
                     .map(|x| x as f64 * (x_scale / nb_points as f64) + x_zone[0])
-                    .map(|x| (x, test_func[i](x))),
+                    .map(|x| (x, test_func[i].compute(x))),
                 &COLORS[i],
             ))?
             .label(format!("{}", desc[i]))

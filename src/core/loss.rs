@@ -74,45 +74,46 @@ pub enum FuncType {
     Groove(GrooveParams),
 }
 
+impl FuncType {
+    pub fn into_inner(self) -> Box<dyn LossFunction> {
+        match self {
+            FuncType::Swamp(params) => Box::new(params),
+            FuncType::SwampGroove(params) => Box::new(params),
+            FuncType::Groove(params) => Box::new(params),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub enum SwampType {
     Swamp(SwampParams),
 }
 
-#[inline]
-pub fn swamp_loss(x_val: f64, p: SwampParams) -> f64 {
-    let x = (2.0 * x_val - p.l_bound - p.u_bound) / (p.u_bound - p.l_bound);
-    let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p.p1 as f64);
-    (p.f1 + p.f2 * x.powi(2)) * (1.0 - (-(x / b).powi(p.p1)).exp()) - 1.0
+pub trait LossFunction {
+    fn compute(&self, x: f64) -> f64;
 }
 
-#[inline]
-pub fn swamp_groove_loss(x_val: f64, p: SwampGrooveParams) -> f64 {
-    let x = (2.0 * x_val - p.l_bound - p.u_bound) / (p.u_bound - p.l_bound);
-    let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / p.p1 as f64);
-    -p.f1 * ((-(x_val - p.g).powi(2)) / (2.0 * p.c.powi(2))).exp()
-        + p.f2 * (x_val - p.g).powi(2)
-        + p.f3 * (1.0 - (-(x / b).powi(p.p1)).exp())
+impl LossFunction for SwampParams {
+    fn compute(&self, x: f64) -> f64 {
+        let x = (2.0 * x - self.l_bound - self.u_bound) / (self.u_bound - self.l_bound);
+        let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / self.p1 as f64);
+        (self.f1 + self.f2 * x.powi(2)) * (1.0 - (-(x / b).powi(self.p1)).exp()) - 1.0
+    }
 }
 
-#[inline]
-pub fn groove_loss(x_val: f64, p: GrooveParams) -> f64 {
-    -((-(x_val - p.t).powi(p.d)) / (2.0 * p.c.powi(2))).exp() + p.f * (x_val - p.t).powi(p.g)
+impl LossFunction for SwampGrooveParams {
+    fn compute(&self, x: f64) -> f64 {
+        let x = (2.0 * x - self.l_bound - self.u_bound) / (self.u_bound - self.l_bound);
+        let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / self.p1 as f64);
+        -self.f1 * ((-(x - self.g).powi(2)) / (2.0 * self.c.powi(2))).exp()
+            + self.f2 * (x - self.g).powi(2)
+            + self.f3 * (1.0 - (-(x / b).powi(self.p1)).exp())
+    }
 }
 
-pub fn get_loss_desc(function: FuncType) -> String {
-    let s = format!("{:#?}", function);
-    let l: Vec<&str> = s.lines().collect();
-    let lines: Vec<&str> = l.iter().map(|s| s.trim()).collect();
-    let core = lines[2..lines.len() - 2].join(" ");
-    lines[0].to_string() + &core[..core.len() - 1] + ")"
-}
-
-#[inline]
-pub fn get_loss_func(function: FuncType) -> Box<dyn Fn(f64) -> f64> {
-    match function {
-        FuncType::Groove(p) => Box::new(move |x: f64| groove_loss(x, p)),
-        FuncType::Swamp(p) => Box::new(move |x: f64| swamp_loss(x, p)),
-        FuncType::SwampGroove(p) => Box::new(move |x: f64| swamp_groove_loss(x, p)),
+impl LossFunction for GrooveParams {
+    fn compute(&self, x: f64) -> f64 {
+        -((-(x - self.t).powi(self.d)) / (2.0 * self.c.powi(2))).exp()
+            + self.f * (x - self.t).powi(self.g)
     }
 }
