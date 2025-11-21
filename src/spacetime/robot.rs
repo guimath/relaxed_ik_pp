@@ -1,4 +1,7 @@
-use crate::{spacetime::arm::RevoluteArm, utils::structs::*};
+use crate::{
+    spacetime::arm::{JointLimits, RevoluteArm},
+    utils::structs::*,
+};
 
 #[derive(Clone, Debug)]
 pub struct Robot {
@@ -6,8 +9,7 @@ pub struct Robot {
     pub num_chains: usize,
     pub num_dof: usize,
     pub chain_lengths: Vec<usize>,
-    pub upper_joint_limits: Vec<f64>,
-    pub lower_joint_limits: Vec<f64>,
+    pub joint_limits: Vec<JointLimits>,
 }
 
 impl Robot {
@@ -19,8 +21,7 @@ impl Robot {
         let num_chains = base_links.len();
         let mut num_dof = 0;
         let mut chain_lengths: Vec<usize> = Vec::new();
-        let mut upper_joint_limits: Vec<f64> = Vec::new();
-        let mut lower_joint_limits: Vec<f64> = Vec::new();
+        let mut joint_limits = Vec::new();
 
         for i in 0..num_chains {
             let base_link = chain.find_link(base_links[i].as_str()).unwrap_or_else(|| {
@@ -39,8 +40,7 @@ impl Robot {
             let arm = RevoluteArm::from_chain(serial_chain);
             num_dof += arm.num_dof;
             chain_lengths.push(arm.num_dof);
-            upper_joint_limits.extend(arm.upper_joint_limits.clone());
-            lower_joint_limits.extend(arm.lower_joint_limits.clone());
+            joint_limits.extend(arm.joint_limits.clone());
             arms.push(arm);
         }
 
@@ -49,8 +49,7 @@ impl Robot {
             num_chains,
             num_dof,
             chain_lengths,
-            upper_joint_limits,
-            lower_joint_limits,
+            joint_limits,
         }
     }
 

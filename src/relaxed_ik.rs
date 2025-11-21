@@ -34,8 +34,7 @@ impl RelaxedIK {
 
         let om = ObjectiveMaster::relaxed_ik(
             &vars.robot.chain_lengths,
-            &vars.robot.lower_joint_limits,
-            &vars.robot.upper_joint_limits,
+            &vars.robot.joint_limits,
             config.objectives.clone(),
         );
         log::debug!("Objectives created");
@@ -50,7 +49,11 @@ impl RelaxedIK {
         let tolerances = [0.0f64; 6];
         let last_joint_num = vars.robot.arms[0].num_dof;
         let gripper_length = vars.robot.arms[0].lin_offsets[last_joint_num][2];
-        let min_possible_cost: f64 = -om.weight_priors.iter().sum::<f64>();
+        let min_possible_cost: f64 = -om
+            .objectives
+            .iter()
+            .map(|obj| obj.get_weight())
+            .sum::<f64>();
         let mut a = Self {
             config,
             vars,

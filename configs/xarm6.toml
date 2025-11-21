@@ -19,9 +19,9 @@ starting_joint_values = [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
 		"joint6",
 	]
 
-	# [objectives.joint_limits]
-	# 	func = { Swamp = { l_bound = -0.1, u_bound = 0.1, f1 = 10.0, f2 = 10.0, p1 = 20 } }
-	# 	weight = 0
+[objectives.joint_limits]
+	func = { Swamp = { l_bound = -0.1, u_bound = 0.1, f1 = 10.0, f2 = 10.0, p1 = 20 } }
+	weight = 0
 
 
 [objectives.cardinal_directions]

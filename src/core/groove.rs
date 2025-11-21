@@ -1,5 +1,7 @@
-use crate::core::objective_master::ObjectiveMaster;
-use crate::core::vars::RelaxedIKVars;
+use crate::{
+    core::{objective_master::ObjectiveMaster, vars::RelaxedIKVars},
+    spacetime::arm::JointLimits,
+};
 use optimization_engine::{constraints::*, panoc::*, *};
 
 use crate::core::groove::core::SolverStatus;
@@ -31,9 +33,15 @@ impl OptimizationEngineOpen {
             Ok(())
         };
         // let bounds = NoConstraints::new();
-        let bounds = Rectangle::new(
-            Option::from(v.robot.lower_joint_limits.as_slice()),
-            Option::from(v.robot.upper_joint_limits.as_slice()),
+        let (lower_bounds, upper_bounds): (Vec<f64>, Vec<f64>) = v
+            .robot
+            .joint_limits
+            .iter()
+            .map(|limits| (limits.lower_bound, limits.upper_bound))
+            .unzip();
+        let bounds: Rectangle<'_> = Rectangle::new(
+            Option::from(lower_bounds.as_slice()),
+            Option::from(upper_bounds.as_slice()),
         );
 
         /* PROBLEM STATEMENT */

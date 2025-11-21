@@ -1,7 +1,7 @@
 CARGO_EXAMPLE := cargo run --release --example
 ROBOT := xarm6
 CONFIG_FILE := configs/$(ROBOT).toml
-LOG_LEVEL := warn  # debug, info, warn, none 
+LOG_LEVEL := info  # debug, info, warn, none 
 ZOOM_DIST := 1.3
 NAME = place_holder.bin
 SAMPLES = 50

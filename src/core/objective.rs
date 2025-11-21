@@ -6,6 +6,126 @@ use crate::{
 use nalgebra::Vector3;
 use parry3d_f64::{query, shape};
 
+pub trait ObjectiveWrapperTrait {
+    fn call(
+        &self,
+        x: &[f64],               // joint values
+        v: &vars::RelaxedIKVars, // general config variables (like target etx)
+        frames: &[Pose],         // all frames poses
+    ) -> f64; // returns loss value
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64;
+
+    fn gradient(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> (f64, Vec<f64>) {
+        let mut grad: Vec<f64> = Vec::new();
+        let f_0 = self.call(x, v, frames);
+
+        for i in 0..x.len() {
+            let mut x_h = x.to_vec();
+            x_h[i] += 0.000000001;
+            let frames_h = v.robot.get_frames_immutable(x_h.as_slice());
+            let f_h = self.call(x_h.as_slice(), v, &frames_h);
+            grad.push((-f_0 + f_h) / 0.000000001);
+        }
+
+        (f_0, grad)
+    }
+    fn gradient_lite(
+        &self,
+        x: &[f64],
+        v: &vars::RelaxedIKVars,
+        ee_poses: &[SinglePose],
+    ) -> (f64, Vec<f64>) {
+        let mut grad: Vec<f64> = Vec::new();
+        let f_0 = self.call_lite(x, v, ee_poses);
+
+        for i in 0..x.len() {
+            let mut x_h = x.to_vec();
+            x_h[i] += 0.0000001;
+            let ee_poses_h = v.robot.get_ee_pos_and_quat_immutable(x_h.as_slice());
+            let f_h = self.call_lite(x_h.as_slice(), v, &ee_poses_h);
+            grad.push((-f_0 + f_h) / 0.0000001);
+        }
+
+        (f_0, grad)
+    }
+    fn gradient_type(&self) -> usize;
+
+    fn get_weight(&self) -> f64;
+}
+
+pub struct ObjectiveWrapper<O, F>
+where
+    F: LossFunction,
+    O: ObjectiveTrait,
+{
+    pub objective: O,
+    pub loss_function: F,
+    pub weight: f64,
+}
+
+impl<O, F> ObjectiveWrapperTrait for ObjectiveWrapper<O, F>
+where
+    O: ObjectiveTrait,
+    F: LossFunction,
+{
+    fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
+        self.weight
+            * self
+                .loss_function
+                .compute(self.objective.call(x, v, frames))
+    }
+
+    fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
+        self.weight
+            * self
+                .loss_function
+                .compute(self.objective.call_lite(x, v, ee_poses))
+    }
+
+    fn gradient(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> (f64, Vec<f64>) {
+        let mut grad: Vec<f64> = Vec::new();
+        let f_0 = self.call(x, v, frames);
+
+        for i in 0..x.len() {
+            let mut x_h = x.to_vec();
+            x_h[i] += 0.000000001;
+            let frames_h = v.robot.get_frames_immutable(x_h.as_slice());
+            let f_h = self.call(x_h.as_slice(), v, &frames_h);
+            grad.push((-f_0 + f_h) / 0.000000001);
+        }
+
+        (f_0, grad)
+    }
+
+    fn gradient_lite(
+        &self,
+        x: &[f64],
+        v: &vars::RelaxedIKVars,
+        ee_poses: &[SinglePose],
+    ) -> (f64, Vec<f64>) {
+        let mut grad: Vec<f64> = Vec::new();
+        let f_0 = self.call_lite(x, v, ee_poses);
+
+        for i in 0..x.len() {
+            let mut x_h = x.to_vec();
+            x_h[i] += 0.0000001;
+            let ee_poses_h = v.robot.get_ee_pos_and_quat_immutable(x_h.as_slice());
+            let f_h = self.call_lite(x_h.as_slice(), v, &ee_poses_h);
+            grad.push((-f_0 + f_h) / 0.0000001);
+        }
+
+        (f_0, grad)
+    }
+
+    fn gradient_type(&self) -> usize {
+        self.objective.gradient_type()
+    }
+
+    fn get_weight(&self) -> f64 {
+        self.weight
+    }
+}
+
 pub trait ObjectiveTrait {
     fn call(
         &self,
@@ -49,24 +169,23 @@ pub trait ObjectiveTrait {
         (f_0, grad)
     }
     fn gradient_type(&self) -> usize {
-        1
-    } // manual diff = 0, finite diff = 1
+        1 // manual diff = 0, finite diff = 1
+    }
 }
 
-pub struct CardinalDirectionObjective<F: LossFunction> {
+#[derive(Debug)]
+pub struct CardinalDirectionObjective {
     pub arm_idx: usize,
-    pub target_direction: [f64; 3], // Unit vector for the desired direction
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for CardinalDirectionObjective<F> {
+impl ObjectiveTrait for CardinalDirectionObjective {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let ee_pos = frames[self.arm_idx].0[last_elem].x;
         let prev_pos = frames[self.arm_idx].0[last_elem - 1].x;
         let x_val: f64 = ee_pos - prev_pos;
-        self.loss_fn.compute(x_val)
+        x_val
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -76,12 +195,11 @@ impl<F: LossFunction> ObjectiveTrait for CardinalDirectionObjective<F> {
 }
 
 #[derive(Debug)]
-pub struct VerticalArm<F: LossFunction> {
+pub struct VerticalArm {
     pub arm_idx: usize,
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
+impl ObjectiveTrait for VerticalArm {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         // let last_elem = frames[self.arm_idx].0.len() - 1;
@@ -96,23 +214,22 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        self.loss_fn.compute(y_delta)
+        y_delta
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
 #[derive(Debug)]
-pub struct VerticalArm2<F: LossFunction> {
+pub struct VerticalArm2 {
     pub arm_idx: usize,
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
+impl ObjectiveTrait for VerticalArm2 {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         // let last_elem = frames[self.arm_idx].0.len() - 1;
@@ -126,23 +243,22 @@ impl<F: LossFunction> ObjectiveTrait for VerticalArm2<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        self.loss_fn.compute(x_delta)
+        x_delta
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
 #[derive(Debug)]
-pub struct HorizontalArm<F: LossFunction> {
+pub struct HorizontalArm {
     pub arm_idx: usize,
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
+impl ObjectiveTrait for HorizontalArm {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
@@ -152,41 +268,41 @@ impl<F: LossFunction> ObjectiveTrait for HorizontalArm<F> {
         // et ee_pos = frames[self.arm_idx].0[last_elem];
         // let prev_pos = frames[self.arm_idx].0[last_elem - 1];
         // let x_val: f64 = (ee_pos.x - prev_pos.x).abs() + (ee_pos.y - prev_pos.y).abs();
-        self.loss_fn.compute(x_val)
+        x_val
     }
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         // let ee_pos = ee_poses[self.arm_idx].0;
         // let   goal = v.goal_positions[self.arm_idx];
         let x_val = 1.0; // placeholder
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
-pub struct HorizontalGripper<F: LossFunction> {
+#[derive(Debug)]
+pub struct HorizontalGripper {
     pub arm_idx: usize,
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for HorizontalGripper<F> {
+impl ObjectiveTrait for HorizontalGripper {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
         let euler = frames[0].1[last_elem].euler_angles();
-        self.loss_fn.compute(euler.1)
+        euler.1
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let euler = ee_poses[self.arm_idx].1.euler_angles();
-        self.loss_fn.compute(euler.1)
+        euler.1
     }
 }
 
-pub struct MatchEEPosiDoF<F: LossFunction> {
+#[derive(Debug)]
+pub struct MatchEEPosiDoF {
     pub arm_idx: usize,
     pub axis: usize,
-    pub loss_fn: F,
 }
-impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
+impl ObjectiveTrait for MatchEEPosiDoF {
     #[inline]
     fn call(&self, _x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
@@ -202,22 +318,22 @@ impl<F: LossFunction> ObjectiveTrait for MatchEEPosiDoF<F> {
         let t_gc = goal_quat.inverse() * t_gw_t_wc;
         let dist: f64 = t_gc[self.axis];
         // let bound = v.tolerances[self.arm_idx][self.axis];
-        self.loss_fn.compute(dist)
+        dist
     }
     fn call_lite(&self, _x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
         let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
-pub struct SelfCollision<F: LossFunction> {
+#[derive(Debug)]
+pub struct SelfCollision {
     pub arm_idx: usize,
     pub first_link: usize,
     pub second_link: usize,
-    pub loss_fn: F,
 }
 
-impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
+impl ObjectiveTrait for SelfCollision {
     #[inline]
     fn call(&self, x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         for x_i in x {
@@ -240,39 +356,36 @@ impl<F: LossFunction> ObjectiveTrait for SelfCollision<F> {
         let segment_pos = nalgebra::one();
         // println!("start_pt_1:{} end_pt_1:{}  start_pt_2:{} end_pt_2:{} x: {:?}", start_pt_1, end_pt_1, start_pt_2, end_pt_2, x);
 
-        let dis =
-            query::distance(&segment_pos, &segment_1, &segment_pos, &segment_2).unwrap() - 0.05;
-        self.loss_fn.compute(dis)
+        query::distance(&segment_pos, &segment_1, &segment_pos, &segment_2).unwrap() - 0.05
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
-        self.loss_fn.compute(1.0)
+        1.0
     }
 }
 
-pub struct MaximizeManipulability<F: LossFunction> {
-    pub loss_fn: F,
-}
-impl<F: LossFunction> ObjectiveTrait for MaximizeManipulability<F> {
+#[derive(Debug)]
+pub struct MaximizeManipulability;
+impl ObjectiveTrait for MaximizeManipulability {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let x_val = v.robot.get_manipulability_with_frame(x, frames);
 
-        self.loss_fn.compute(x_val)
+        x_val
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
         0.0
     }
 }
-pub struct EachJointLimits<F: LossFunction> {
+#[derive(Debug)]
+pub struct EachJointLimits {
     pub joint_idx: usize,
-    pub loss_fn: F,
 }
-impl<F: LossFunction> ObjectiveTrait for EachJointLimits<F> {
+impl ObjectiveTrait for EachJointLimits {
     #[inline]
     fn call(&self, x: &[f64], _v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
-        self.loss_fn.compute(x[self.joint_idx])
+        x[self.joint_idx]
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -280,10 +393,9 @@ impl<F: LossFunction> ObjectiveTrait for EachJointLimits<F> {
     }
 }
 
-pub struct MinimizeVelocity<F: LossFunction> {
-    pub loss_fn: F,
-}
-impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
+#[derive(Debug)]
+pub struct MinimizeVelocity;
+impl ObjectiveTrait for MinimizeVelocity {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         let x_val = x
@@ -292,7 +404,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
             .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -302,14 +414,13 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeVelocity<F> {
             .map(|(x_i, xopt_i)| (x_i - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
-pub struct MinimizeAcceleration<F: LossFunction> {
-    pub loss_fn: F,
-}
-impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
+#[derive(Debug)]
+pub struct MinimizeAcceleration;
+impl ObjectiveTrait for MinimizeAcceleration {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         let x_val = x
@@ -318,7 +429,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
             .map(|(x_i, prev_state_i)| (x_i - prev_state_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -328,14 +439,13 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeAcceleration<F> {
             .map(|(xi, xopt_i)| (xi - xopt_i).powi(2))
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }
 
-pub struct MinimizeJerk<F: LossFunction> {
-    pub loss_fn: F,
-}
-impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
+#[derive(Debug)]
+pub struct MinimizeJerk;
+impl ObjectiveTrait for MinimizeJerk {
     #[inline]
     fn call(&self, x: &[f64], v: &vars::RelaxedIKVars, _frames: &[Pose]) -> f64 {
         /* logic:
@@ -359,7 +469,7 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
             })
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 
     fn call_lite(&self, x: &[f64], v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {
@@ -373,6 +483,6 @@ impl<F: LossFunction> ObjectiveTrait for MinimizeJerk<F> {
             })
             .sum::<f64>()
             .sqrt();
-        self.loss_fn.compute(x_val)
+        x_val
     }
 }

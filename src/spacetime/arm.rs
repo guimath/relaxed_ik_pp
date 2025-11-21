@@ -12,18 +12,23 @@ pub struct RevoluteArm {
     // Axis of joint
     joint_axis: Vec<Unit<Vector3<f64>>>,
 
-    pub upper_joint_limits: Vec<f64>,
-    pub lower_joint_limits: Vec<f64>,
+    pub joint_limits: Vec<JointLimits>,
     get_quat: Vec<fn(f64) -> UnitQuaternion<f64>>,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct JointLimits {
+    pub lower_bound: f64,
+    pub upper_bound: f64,
+}
+
 impl RevoluteArm {
     pub fn from_chain(chain: k::SerialChain<f64>) -> RevoluteArm {
         let mut num_dof = 0;
         let mut get_quat: Vec<fn(f64) -> UnitQuaternion<f64>> = Vec::new();
         let mut lin_offsets: Vec<Vector3<f64>> = Vec::new();
         let mut rot_offsets: Vec<UnitQuaternion<f64>> = Vec::new();
-        let mut upper_joint_limits: Vec<f64> = Vec::new();
-        let mut lower_joint_limits: Vec<f64> = Vec::new();
+        let mut joint_limits = Vec::new();
         let mut joint_axis: Vec<Unit<Vector3<f64>>> = Vec::new();
 
         let mut first_link = true;
@@ -67,12 +72,16 @@ impl RevoluteArm {
                         panic!("Axis not recognized")
                     }
 
-                    if joint.limits.is_none() {
-                        lower_joint_limits.push(-999.0);
-                        upper_joint_limits.push(999.0);
+                    if let Some(joint_limit) = joint.limits {
+                        joint_limits.push(JointLimits {
+                            lower_bound: joint_limit.min,
+                            upper_bound: joint_limit.max,
+                        });
                     } else {
-                        lower_joint_limits.push(joint.limits.unwrap().min);
-                        upper_joint_limits.push(joint.limits.unwrap().max);
+                        joint_limits.push(JointLimits {
+                            lower_bound: -999.0,
+                            upper_bound: 999.0,
+                        });
                     }
                     let org = joint.origin();
                     lin_offsets.push(org.translation.vector);
@@ -108,8 +117,7 @@ impl RevoluteArm {
             rot_offsets,
             is_rot_offset_null,
             joint_axis,
-            upper_joint_limits,
-            lower_joint_limits,
+            joint_limits,
             get_quat,
         }
     }

@@ -4,6 +4,7 @@ use crate::{
         objective::*,
         vars::RelaxedIKVars,
     },
+    spacetime::arm::JointLimits,
     utils::structs::*,
 };
 use serde::Deserialize;
@@ -16,9 +17,16 @@ pub struct ObjectiveType {
     weight: f64,
 }
 
-impl LossFunction for ObjectiveType {
-    fn compute(&self, x: f64) -> f64 {
-        self.func.compute(x) * self.weight
+impl ObjectiveType {
+    pub fn to_objective<T>(&self, objective: T) -> Box<ObjectiveWrapper<T, FuncType>>
+    where
+        T: ObjectiveTrait,
+    {
+        Box::new(ObjectiveWrapper {
+            objective,
+            loss_function: self.func,
+            weight: self.weight,
+        })
     }
 }
 
@@ -89,9 +97,8 @@ macro_rules! box_in {
 }
 
 pub struct ObjectiveMaster {
-    pub objectives: Vec<Box<dyn ObjectiveTrait + Send>>,
+    pub objectives: Vec<Box<dyn ObjectiveWrapperTrait + Send>>,
     pub num_chains: usize,
-    pub weight_priors: Vec<f64>,
     pub lite: bool,
     pub finite_diff_grad: bool,
 }
@@ -99,61 +106,54 @@ pub struct ObjectiveMaster {
 impl ObjectiveMaster {
     pub fn relaxed_ik(
         chain_lengths: &[usize],
-        lower_joint_limits: &[f64],
-        upper_joint_limits: &[f64],
+        limits: &[JointLimits],
         config: ObjectivesConfig,
     ) -> Self {
-        let mut objectives: Vec<Box<dyn ObjectiveTrait + Send>> = Vec::new();
-        let mut weight_priors: Vec<f64> = Vec::new();
+        let mut objectives: Vec<Box<dyn ObjectiveWrapperTrait + Send>> = Vec::new();
         let mut recap: String = String::new();
         let num_chains = chain_lengths.len();
 
         /// helper macro to add an objective to objectives vec and weight
         macro_rules! add_obj {
-            ($obj:expr, $obj_struct:ident $(, $params:tt)*) => {{
+            ($obj:expr, $obj_struct:expr) => {{
                 if $obj.weight > 0.0 {
-                    objectives.push(box_in!($obj.func, $obj_struct $(, $params )*));
-                    weight_priors.push($obj.weight);
-                    recap += format!("{:20} - {:?} - {:?}\n", stringify!($obj_struct), $obj.weight, $obj.func).as_str();
+                    objectives.push($obj.to_objective($obj_struct));
+                    recap += format!("{:?} - {:?} - {:?}\n", $obj_struct, $obj.weight, $obj.func)
+                        .as_str();
                 }
             }};
-
         }
 
-        let num_dof: usize = chain_lengths.iter().sum();
-        for arm_idx in 0..num_chains {
-            let axis = 0; // Z=0; Y=1; X=2;
-            add_obj!(config.z_pos, MatchEEPosiDoF, arm_idx, axis);
-            let axis = 1;
-            add_obj!(config.y_pos, MatchEEPosiDoF, arm_idx, axis);
-            let axis = 2;
-            add_obj!(config.x_pos, MatchEEPosiDoF, arm_idx, axis);
-            add_obj!(config.horizontal_arm, HorizontalArm, arm_idx);
-            add_obj!(config.horizontal_grip, HorizontalGripper, arm_idx);
-            add_obj!(config.vertical_arm, VerticalArm, arm_idx);
-            add_obj!(config.vertical_arm, VerticalArm2, arm_idx);
-            let target_direction = [0.0, 0.0, 1.0];
+        for arm_idx in 0..chain_lengths.len() {
+            // axis Z=0; Y=1; X=2;
+            add_obj!(config.z_pos, MatchEEPosiDoF { arm_idx, axis: 0 });
+            add_obj!(config.y_pos, MatchEEPosiDoF { arm_idx, axis: 1 });
+            add_obj!(config.z_pos, MatchEEPosiDoF { arm_idx, axis: 2 });
+            add_obj!(config.z_pos, HorizontalArm { arm_idx });
+            add_obj!(config.horizontal_arm, HorizontalArm { arm_idx });
+            add_obj!(config.horizontal_grip, HorizontalGripper { arm_idx });
+            add_obj!(config.vertical_arm, VerticalArm { arm_idx });
+            add_obj!(config.vertical_arm, VerticalArm2 { arm_idx });
             add_obj!(
                 config.cardinal_directions,
-                CardinalDirectionObjective,
-                arm_idx,
-                target_direction
+                CardinalDirectionObjective { arm_idx }
             );
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
-        for joint_idx in 0..num_dof {
-            let l_bound = lower_joint_limits[joint_idx];
-            let u_bound = upper_joint_limits[joint_idx];
-            if l_bound == -999.0 && u_bound == 999.0 {
+        for (joint_idx, limit) in limits.iter().enumerate() {
+            if limit.lower_bound < -999.0 && limit.upper_bound > 999.0 {
                 continue; // ignore joint limit
             }
-            params.l_bound = l_bound;
-            params.u_bound = u_bound;
-            let obj = ObjectiveType {
-                func: FuncType::Swamp(params),
-                weight: config.joint_limits.weight,
-            };
-            add_obj!(obj, EachJointLimits, joint_idx);
+            params.l_bound = limit.lower_bound;
+            params.u_bound = limit.upper_bound;
+
+            add_obj!(
+                ObjectiveType {
+                    func: FuncType::Swamp(params),
+                    weight: config.joint_limits.weight,
+                },
+                EachJointLimits { joint_idx }
+            );
         }
 
         add_obj!(config.minimize_velocity, MinimizeVelocity);
@@ -161,19 +161,19 @@ impl ObjectiveMaster {
         add_obj!(config.minimize_jerk, MinimizeJerk);
         add_obj!(config.maximize_manipulability, MaximizeManipulability);
 
-        for (chain_length, &arm_idx) in chain_lengths.iter().enumerate().take(num_chains) {
-            if chain_length < 2 {
-                continue;
-            }
-            for first_link in 0..chain_length - 2 {
-                for second_link in first_link + 2..chain_length {
-                    add_obj!(
-                        config.self_collision,
-                        SelfCollision,
-                        arm_idx,
-                        first_link,
-                        second_link
-                    );
+        for (arm_idx, &chain_length) in chain_lengths.iter().enumerate() {
+            if chain_length >= 2 {
+                for first_link in 0..chain_length - 2 {
+                    for second_link in first_link + 2..chain_length {
+                        add_obj!(
+                            config.self_collision,
+                            SelfCollision {
+                                arm_idx,
+                                first_link,
+                                second_link
+                            }
+                        );
+                    }
                 }
             }
         }
@@ -182,7 +182,6 @@ impl ObjectiveMaster {
         Self {
             objectives,
             num_chains,
-            weight_priors,
             lite: false,
             finite_diff_grad: true,
         }
@@ -192,7 +191,7 @@ impl ObjectiveMaster {
         let frames = vars.robot.get_frames_immutable(x);
         let mut out = vec![0.0_f64; self.objectives.len()];
         for (i, objective) in self.objectives.iter().enumerate() {
-            out[i] = self.weight_priors[i] * objective.call(x, vars, &frames);
+            out[i] = objective.call(x, vars, &frames);
         }
         out
     }
@@ -232,7 +231,7 @@ impl ObjectiveMaster {
         let mut out = 0.0;
         let frames = vars.robot.get_frames_immutable(x);
         for i in 0..self.objectives.len() {
-            out += self.weight_priors[i] * self.objectives[i].call(x, vars, &frames);
+            out += self.objectives[i].call(x, vars, &frames);
         }
         out
     }
@@ -241,7 +240,7 @@ impl ObjectiveMaster {
         let mut out = 0.0;
         let poses = vars.robot.get_ee_pos_and_quat_immutable(x);
         for i in 0..self.objectives.len() {
-            out += self.weight_priors[i] * self.objectives[i].call_lite(x, vars, &poses);
+            out += self.objectives[i].call_lite(x, vars, &poses);
         }
         out
     }
@@ -257,14 +256,14 @@ impl ObjectiveMaster {
             if self.objectives[i].gradient_type() == 0 {
                 let (local_obj, local_grad) = self.objectives[i].gradient(x, vars, &frames_0);
                 f_0s.push(local_obj);
-                obj += self.weight_priors[i] * local_obj;
+                obj += local_obj;
                 for j in 0..local_grad.len() {
-                    grad[j] += self.weight_priors[i] * local_grad[j];
+                    grad[j] += local_grad[j];
                 }
             } else if self.objectives[i].gradient_type() == 1 {
                 finite_diff_list.push(i);
                 let local_obj = self.objectives[i].call(x, vars, &frames_0);
-                obj += self.weight_priors[i] * local_obj;
+                obj += local_obj;
                 f_0s.push(local_obj);
             }
         }
@@ -274,9 +273,9 @@ impl ObjectiveMaster {
                 let mut x_h = x.to_vec();
                 x_h[i] += 0.0000001;
                 let frames_h = vars.robot.get_frames_immutable(x_h.as_slice());
-                for j in &finite_diff_list {
-                    let f_h = self.objectives[*j].call(&x_h, vars, &frames_h);
-                    grad[i] += self.weight_priors[*j] * ((-f_0s[*j] + f_h) / 0.0000001);
+                for &j in &finite_diff_list {
+                    let f_h = self.objectives[j].call(&x_h, vars, &frames_h);
+                    grad[i] += ((-f_0s[j] + f_h) / 0.0000001);
                 }
             }
         }
@@ -295,14 +294,14 @@ impl ObjectiveMaster {
             if self.objectives[i].gradient_type() == 1 {
                 let (local_obj, local_grad) = self.objectives[i].gradient_lite(x, vars, &poses_0);
                 f_0s.push(local_obj);
-                obj += self.weight_priors[i] * local_obj;
+                obj += local_obj;
                 for j in 0..local_grad.len() {
-                    grad[j] += self.weight_priors[i] * local_grad[j];
+                    grad[j] += local_grad[j];
                 }
             } else if self.objectives[i].gradient_type() == 0 {
                 finite_diff_list.push(i);
                 let local_obj = self.objectives[i].call_lite(x, vars, &poses_0);
-                obj += self.weight_priors[i] * local_obj;
+                obj += local_obj;
                 f_0s.push(local_obj);
             }
         }
@@ -314,7 +313,7 @@ impl ObjectiveMaster {
                 let poses_h = vars.robot.get_ee_pos_and_quat_immutable(x_h.as_slice());
                 for j in &finite_diff_list {
                     let f_h = self.objectives[*j].call_lite(x, vars, &poses_h);
-                    grad[i] += self.weight_priors[*j] * ((-f_0s[*j] + f_h) / 0.0000001);
+                    grad[i] += ((-f_0s[*j] + f_h) / 0.0000001);
                 }
             }
         }
@@ -344,7 +343,7 @@ impl ObjectiveMaster {
         let frame_org: Vec<Pose> = vec![(frame_pos.clone(), frame_rot.clone())];
         let mut f_0 = 0.0;
         for i in 0..self.objectives.len() {
-            f_0 += self.weight_priors[i] * self.objectives[i].call(x, vars, &frame_org);
+            f_0 += self.objectives[i].call(x, vars, &frame_org);
         }
 
         for i in 0..x.len() {
@@ -359,7 +358,7 @@ impl ObjectiveMaster {
             let frame_org = vec![guard_frame];
             let mut f_h = 0.0;
             for j in 0..self.objectives.len() {
-                f_h += self.weight_priors[j] * self.objectives[j].call(&x_h, vars, &frame_org);
+                f_h += self.objectives[j].call(&x_h, vars, &frame_org);
             }
             grad[i] = (-f_0 + f_h) / 0.000001;
         }
