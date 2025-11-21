@@ -139,6 +139,7 @@ impl RelaxedIK {
         let cost_threshold = self.min_possible_cost + 10.0; //self.config.cost_threshold;
         const MAX_IK_ITER: usize = 4;
         const Z_OFFSET: f64 = 0.0;
+
         // self.config.cost_threshold = 1000.0;
         //init vars
         for i in 0..self.vars.robot.num_chains {
@@ -179,7 +180,7 @@ impl RelaxedIK {
         let mut out_x = self.vars.xopt.clone();
         let res = self
             .groove
-            .optimize(&mut out_x, &self.vars, &self.om, 200)
+            .optimize(&mut out_x, &self.vars, &self.om, 2000)
             .map_err(|e| match e {
                 SolverError::Cost => Error::Cost,
                 SolverError::NotFiniteComputation => Error::NotFiniteComputation,

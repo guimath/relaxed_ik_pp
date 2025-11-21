@@ -63,33 +63,10 @@ impl<F: LossFunction> ObjectiveTrait for CardinalDirectionObjective<F> {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
         let last_elem = frames[self.arm_idx].0.len() - 1;
-
-        // Get the direction vector of the end effector
-        let ee_pos = frames[self.arm_idx].0[last_elem];
-        let prev_pos = frames[self.arm_idx].0[last_elem - 1];
-        let direction = [
-            ee_pos.x - prev_pos.x,
-            ee_pos.y - prev_pos.y,
-            ee_pos.z - prev_pos.z,
-        ];
-
-        // Normalize the direction vector
-        let norm = (direction[0].powi(2) + direction[1].powi(2) + direction[2].powi(2)).sqrt();
-        let normalized_direction = [
-            direction[0] / norm,
-            direction[1] / norm,
-            direction[2] / norm,
-        ];
-
-        // Compute the dot product with the target direction
-        let dot_product = normalized_direction
-            .iter()
-            .zip(self.target_direction.iter())
-            .map(|(a, b)| a * b)
-            .sum::<f64>();
-
-        // Use the loss function to penalize deviation from the target direction
-        self.loss_fn.compute(1.0 - dot_product) // 1.0 - dot_product is the deviation
+        let ee_pos = frames[self.arm_idx].0[last_elem].x;
+        let prev_pos = frames[self.arm_idx].0[last_elem - 1].x;
+        let x_val: f64 = ee_pos - prev_pos;
+        self.loss_fn.compute(x_val)
     }
 
     fn call_lite(&self, _x: &[f64], _v: &vars::RelaxedIKVars, _ee_poses: &[SinglePose]) -> f64 {

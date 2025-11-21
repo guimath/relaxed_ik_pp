@@ -267,8 +267,9 @@ fn main() {
                     rik.planner.obstacles = compound;
                 }
 
-                if !plans.is_empty() {
-                    let plan = plans.pop().unwrap();
+                if let Some(plan) = plans.pop() {
+                    let _ = plans.pop();
+                    let _ = plans.pop();
                     robot.set_joint_positions_clamped(&plan);
                     viewer.update(robot_viz);
                     let pose = rik.vars.robot.get_ee_pos_and_quat_immutable(&plan);

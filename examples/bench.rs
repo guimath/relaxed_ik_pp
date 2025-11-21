@@ -15,7 +15,7 @@ struct Cli {
     settings: PathBuf,
 }
 
-const NUM_PER_JOINT: i32 = 12;
+const NUM_PER_JOINT: i32 = 8;
 const STEP: f64 = 1.0 / NUM_PER_JOINT as f64;
 #[inline]
 fn to_joint_val(x: i32) -> f64 {

@@ -84,6 +84,16 @@ impl FuncType {
     }
 }
 
+impl LossFunction for FuncType {
+    fn compute(&self, x: f64) -> f64 {
+        match self {
+            FuncType::Swamp(params) => params.compute(x),
+            FuncType::SwampGroove(params) => params.compute(x),
+            FuncType::Groove(params) => params.compute(x),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub enum SwampType {
     Swamp(SwampParams),

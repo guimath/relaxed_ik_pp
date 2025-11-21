@@ -3,7 +3,7 @@ use relaxed_ik_lib::core::loss::LossFunction;
 use serde::Deserialize;
 
 use clap::Parser;
-use relaxed_ik_lib::core::{loss, loss::FuncType};
+use relaxed_ik_lib::core::loss::FuncType;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;

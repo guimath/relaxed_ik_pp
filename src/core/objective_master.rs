@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        loss::{FuncType, SwampType},
+        loss::{FuncType, LossFunction, SwampType},
         objective::*,
         vars::RelaxedIKVars,
     },
@@ -10,14 +10,20 @@ use serde::Deserialize;
 use std::fmt::Debug;
 
 /// User configurable part of an objective (loss function & weight)
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct ObjectiveType {
     func: FuncType,
     weight: f64,
 }
 
+impl LossFunction for ObjectiveType {
+    fn compute(&self, x: f64) -> f64 {
+        self.func.compute(x) * self.weight
+    }
+}
+
 /// swamp only objective
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct ObjectiveSwamp {
     func: SwampType,
     weight: f64,
@@ -117,27 +123,24 @@ impl ObjectiveMaster {
         let num_dof: usize = chain_lengths.iter().sum();
         for arm_idx in 0..num_chains {
             let axis = 0; // Z=0; Y=1; X=2;
-            let obj = config.z_pos.clone();
-            add_obj!(obj, MatchEEPosiDoF, arm_idx, axis);
+            add_obj!(config.z_pos, MatchEEPosiDoF, arm_idx, axis);
             let axis = 1;
-            let obj = config.y_pos.clone();
-            add_obj!(obj, MatchEEPosiDoF, arm_idx, axis);
+            add_obj!(config.y_pos, MatchEEPosiDoF, arm_idx, axis);
             let axis = 2;
-            let obj = config.x_pos.clone();
-            add_obj!(obj, MatchEEPosiDoF, arm_idx, axis);
-            let obj = config.horizontal_arm.clone();
-            add_obj!(obj, HorizontalArm, arm_idx);
-            let obj = config.horizontal_grip.clone();
-            add_obj!(obj, HorizontalGripper, arm_idx);
-            let obj = config.vertical_arm.clone();
-            add_obj!(obj, VerticalArm, arm_idx);
-            add_obj!(obj, VerticalArm2, arm_idx);
+            add_obj!(config.x_pos, MatchEEPosiDoF, arm_idx, axis);
+            add_obj!(config.horizontal_arm, HorizontalArm, arm_idx);
+            add_obj!(config.horizontal_grip, HorizontalGripper, arm_idx);
+            add_obj!(config.vertical_arm, VerticalArm, arm_idx);
+            add_obj!(config.vertical_arm, VerticalArm2, arm_idx);
             let target_direction = [0.0, 0.0, 1.0];
-            let obj = config.cardinal_directions.clone();
-            add_obj!(obj, CardinalDirectionObjective, arm_idx, target_direction);
+            add_obj!(
+                config.cardinal_directions,
+                CardinalDirectionObjective,
+                arm_idx,
+                target_direction
+            );
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
-        let weight = config.joint_limits.weight;
         for joint_idx in 0..num_dof {
             let l_bound = lower_joint_limits[joint_idx];
             let u_bound = upper_joint_limits[joint_idx];
@@ -148,28 +151,29 @@ impl ObjectiveMaster {
             params.u_bound = u_bound;
             let obj = ObjectiveType {
                 func: FuncType::Swamp(params),
-                weight,
+                weight: config.joint_limits.weight,
             };
             add_obj!(obj, EachJointLimits, joint_idx);
         }
 
-        let obj = config.minimize_velocity;
-        add_obj!(obj, MinimizeVelocity);
-        let obj = config.minimize_acceleration;
-        add_obj!(obj, MinimizeAcceleration);
-        let obj = config.minimize_jerk;
-        add_obj!(obj, MinimizeJerk);
-        let obj = config.maximize_manipulability;
-        add_obj!(obj, MaximizeManipulability);
+        add_obj!(config.minimize_velocity, MinimizeVelocity);
+        add_obj!(config.minimize_acceleration, MinimizeAcceleration);
+        add_obj!(config.minimize_jerk, MinimizeJerk);
+        add_obj!(config.maximize_manipulability, MaximizeManipulability);
 
-        let obj = config.self_collision;
         for (chain_length, &arm_idx) in chain_lengths.iter().enumerate().take(num_chains) {
             if chain_length < 2 {
                 continue;
             }
             for first_link in 0..chain_length - 2 {
                 for second_link in first_link + 2..chain_length {
-                    add_obj!(obj, SelfCollision, arm_idx, first_link, second_link);
+                    add_obj!(
+                        config.self_collision,
+                        SelfCollision,
+                        arm_idx,
+                        first_link,
+                        second_link
+                    );
                 }
             }
         }
