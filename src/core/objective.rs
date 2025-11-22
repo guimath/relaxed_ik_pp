@@ -310,13 +310,10 @@ impl ObjectiveTrait for MatchEEPosiDoF {
         );
 
         let t_gc = goal_quat.inverse() * t_gw_t_wc;
-        let dist: f64 = t_gc[self.axis];
-        // let bound = v.tolerances[self.arm_idx][self.axis];
-        dist
+        t_gc[self.axis]
     }
     fn call_lite(&self, _x: &[f64], v: &vars::RelaxedIKVars, ee_poses: &[SinglePose]) -> f64 {
-        let x_val = (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm();
-        x_val
+        (ee_poses[self.arm_idx].0 - v.goal_positions[self.arm_idx]).norm()
     }
 }
 
