@@ -19,11 +19,10 @@ starting_joint_values = [0.0, -1.2, -0.15, 0.1, -0.1, 1.57]
 		"joint6",
 	]
 
-[objectives.joint_limits]
-	func = { Swamp = { l_bound = -0.1, u_bound = 0.1, f1 = 10.0, f2 = 10.0, p1 = 20 } }
-	weight = 0
+	# [objectives.self_collision]
+	# 	func = { Swamp = { l_bound = 0.02, u_bound = 1.5, f1 = 60.0, f2 = 0.0001, p1 = 30 } }
+	# 	weight = 0.0
 
-
-[objectives.cardinal_directions]
-	func = { Groove = { t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2 } }
-	weight = 0
+	# [objectives.cardinal_directions]
+	# 	func = { Groove = { t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2 } }
+	# 	weight = 0

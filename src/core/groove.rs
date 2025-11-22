@@ -1,7 +1,4 @@
-use crate::{
-    core::{objective_master::ObjectiveMaster, vars::RelaxedIKVars},
-    spacetime::arm::JointLimits,
-};
+use crate::core::{objective_master::ObjectiveMaster, vars::RelaxedIKVars};
 use optimization_engine::{constraints::*, panoc::*, *};
 
 use crate::core::groove::core::SolverStatus;
@@ -23,7 +20,7 @@ impl OptimizationEngineOpen {
         max_iter: usize,
     ) -> Result<SolverStatus, SolverError> {
         let df = move |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
-            let (_, my_grad) = om.gradient(u, v);
+            let (_, my_grad) = om.optimized_grad(u, v);
             grad[..my_grad.len()].copy_from_slice(&my_grad[..]);
             Ok(())
         };

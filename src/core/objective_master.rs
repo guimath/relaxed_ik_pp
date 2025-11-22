@@ -1,33 +1,19 @@
 use crate::{
     core::{
-        loss::{FuncType, LossFunction, SwampType},
+        loss::{FuncType, SwampType},
         objective::*,
         vars::RelaxedIKVars,
     },
     spacetime::arm::JointLimits,
     utils::structs::*,
 };
-use serde::Deserialize;
-use std::fmt::Debug;
+use {serde::Deserialize, std::fmt::Debug};
 
 /// User configurable part of an objective (loss function & weight)
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub struct ObjectiveType {
     func: FuncType,
     weight: f64,
-}
-
-impl ObjectiveType {
-    pub fn to_objective<T>(&self, objective: T) -> Box<ObjectiveWrapper<T, FuncType>>
-    where
-        T: ObjectiveTrait,
-    {
-        Box::new(ObjectiveWrapper {
-            objective,
-            loss_function: self.func,
-            weight: self.weight,
-        })
-    }
 }
 
 /// swamp only objective
@@ -73,34 +59,27 @@ pub struct ObjectivesConfig {
     pub self_collision: ObjectiveType,
 }
 
-/// creates a boxed objective
-/// * First parameter : FuncType
-/// * Second parameter : ObjectiveTrait struct
-/// * All other parameter : needed variables to create the struct
-///     * Warning: needs to have the same name as the struct fields
-/// ## Example :
-/// ```
-/// let obj:ObjectiveType = ...
-/// box_in!(obj.func, MatchEEPosiDoF, arm_idx, axis)
-/// // or
-/// box_in!(obj.func, MinimizeVelocity)
-/// ```
-macro_rules! box_in {
-    ($func:expr, $obj_struct:ident $(, $params:tt)*) => {{
-        let bx : Box<dyn ObjectiveTrait + Send> = match $func {
-            FuncType::Swamp(loss_fn)       => {Box::new($obj_struct{$($params,)* loss_fn})},
-            FuncType::SwampGroove(loss_fn) => {Box::new($obj_struct{$($params,)* loss_fn})},
-            FuncType::Groove(loss_fn)      => {Box::new($obj_struct{$($params,)* loss_fn})},
-        };
-        bx
-    }};
-}
-
 pub struct ObjectiveMaster {
     pub objectives: Vec<Box<dyn ObjectiveWrapperTrait + Send>>,
     pub num_chains: usize,
     pub lite: bool,
     pub finite_diff_grad: bool,
+}
+
+fn add_objective<T>(
+    objectives: &mut Vec<Box<dyn ObjectiveWrapperTrait + Send>>,
+    objective_config: ObjectiveType,
+    objective: T,
+) where
+    T: ObjectiveTrait + Debug + Send + 'static,
+{
+    if objective_config.weight > 0.0 {
+        objectives.push(Box::new(ObjectiveWrapper {
+            objective,
+            loss_function: objective_config.func,
+            weight: objective_config.weight,
+        }));
+    }
 }
 
 impl ObjectiveMaster {
@@ -110,26 +89,24 @@ impl ObjectiveMaster {
         config: ObjectivesConfig,
     ) -> Self {
         let mut objectives: Vec<Box<dyn ObjectiveWrapperTrait + Send>> = Vec::new();
-        let mut recap: String = String::new();
         let num_chains = chain_lengths.len();
 
-        /// helper macro to add an objective to objectives vec and weight
         macro_rules! add_obj {
             ($obj:expr, $obj_struct:expr) => {{
-                if $obj.weight > 0.0 {
-                    objectives.push($obj.to_objective($obj_struct));
-                    recap += format!("{:?} - {:?} - {:?}\n", $obj_struct, $obj.weight, $obj.func)
-                        .as_str();
-                }
+                add_objective(&mut objectives, $obj, $obj_struct);
             }};
         }
 
         for arm_idx in 0..chain_lengths.len() {
             // axis Z=0; Y=1; X=2;
+            add_objective(
+                &mut objectives,
+                config.z_pos,
+                MatchEEPosiDoF { arm_idx, axis: 0 },
+            );
             add_obj!(config.z_pos, MatchEEPosiDoF { arm_idx, axis: 0 });
             add_obj!(config.y_pos, MatchEEPosiDoF { arm_idx, axis: 1 });
-            add_obj!(config.z_pos, MatchEEPosiDoF { arm_idx, axis: 2 });
-            add_obj!(config.z_pos, HorizontalArm { arm_idx });
+            add_obj!(config.x_pos, MatchEEPosiDoF { arm_idx, axis: 2 });
             add_obj!(config.horizontal_arm, HorizontalArm { arm_idx });
             add_obj!(config.horizontal_grip, HorizontalGripper { arm_idx });
             add_obj!(config.vertical_arm, VerticalArm { arm_idx });
@@ -178,7 +155,14 @@ impl ObjectiveMaster {
             }
         }
 
-        log::info!("objectives : \n{recap}");
+        log::info!(
+            "Loaded objective: \n{}",
+            objectives
+                .iter()
+                .map(|obj| obj.recap())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
         Self {
             objectives,
             num_chains,
@@ -204,28 +188,28 @@ impl ObjectiveMaster {
         }
     }
 
-    pub fn gradient(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        if self.lite {
-            if self.finite_diff_grad {
-                self.__gradient_finite_diff_lite(x, vars)
-            } else {
-                self.__gradient_lite(x, vars)
-            }
-        } else if self.finite_diff_grad {
-            self.optimized_grad(x, vars)
-            // self.__gradient_finite_diff(x, vars)
-        } else {
-            self.__gradient(x, vars)
-        }
-    }
+    // pub fn gradient(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    //     if self.lite {
+    //         if self.finite_diff_grad {
+    //             self.__gradient_finite_diff_lite(x, vars)
+    //         } else {
+    //             self.__gradient_lite(x, vars)
+    //         }
+    //     } else if self.finite_diff_grad {
+    //         self.optimized_grad(x, vars)
+    //         // self.__gradient_finite_diff(x, vars)
+    //     } else {
+    //         self.__gradient(x, vars)
+    //     }
+    // }
 
-    pub fn gradient_finite_diff(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        if self.lite {
-            self.__gradient_finite_diff_lite(x, vars)
-        } else {
-            self.__gradient_finite_diff(x, vars)
-        }
-    }
+    // pub fn gradient_finite_diff(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    //     if self.lite {
+    //         self.__gradient_finite_diff_lite(x, vars)
+    //     } else {
+    //         self.__gradient_finite_diff(x, vars)
+    //     }
+    // }
 
     fn __call(&self, x: &[f64], vars: &RelaxedIKVars) -> f64 {
         let mut out = 0.0;
@@ -245,98 +229,100 @@ impl ObjectiveMaster {
         out
     }
 
-    fn __gradient(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        let mut grad: Vec<f64> = vec![0.; x.len()];
-        let mut obj = 0.0;
+    // fn __gradient(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    //     let mut grad: Vec<f64> = vec![0.; x.len()];
+    //     let mut obj = 0.0;
 
-        let mut finite_diff_list: Vec<usize> = Vec::new();
-        let mut f_0s: Vec<f64> = Vec::new();
-        let frames_0 = vars.robot.get_frames_immutable(x);
-        for i in 0..self.objectives.len() {
-            if self.objectives[i].gradient_type() == 0 {
-                let (local_obj, local_grad) = self.objectives[i].gradient(x, vars, &frames_0);
-                f_0s.push(local_obj);
-                obj += local_obj;
-                for j in 0..local_grad.len() {
-                    grad[j] += local_grad[j];
-                }
-            } else if self.objectives[i].gradient_type() == 1 {
-                finite_diff_list.push(i);
-                let local_obj = self.objectives[i].call(x, vars, &frames_0);
-                obj += local_obj;
-                f_0s.push(local_obj);
-            }
-        }
+    //     let mut finite_diff_list: Vec<usize> = Vec::new();
+    //     let mut f_0s: Vec<f64> = Vec::new();
+    //     let frames_0 = vars.robot.get_frames_immutable(x);
+    //     for i in 0..self.objectives.len() {
+    //         if self.objectives[i].gradient_type() == 0 {
+    //             let (local_obj, local_grad) = self.objectives[i].gradient(x, vars, &frames_0);
+    //             f_0s.push(local_obj);
+    //             obj += local_obj;
+    //             for j in 0..local_grad.len() {
+    //                 grad[j] += local_grad[j];
+    //             }
+    //         } else if self.objectives[i].gradient_type() == 1 {
+    //             finite_diff_list.push(i);
+    //             let local_obj = self.objectives[i].call(x, vars, &frames_0);
+    //             obj += local_obj;
+    //             f_0s.push(local_obj);
+    //         }
+    //     }
 
-        if !finite_diff_list.is_empty() {
-            for i in 0..x.len() {
-                let mut x_h = x.to_vec();
-                x_h[i] += 0.0000001;
-                let frames_h = vars.robot.get_frames_immutable(x_h.as_slice());
-                for &j in &finite_diff_list {
-                    let f_h = self.objectives[j].call(&x_h, vars, &frames_h);
-                    grad[i] += ((-f_0s[j] + f_h) / 0.0000001);
-                }
-            }
-        }
+    //     println!("before");
+    //     if !finite_diff_list.is_empty() {
+    //         println!("using finite");
+    //         for i in 0..x.len() {
+    //             let mut x_h = x.to_vec();
+    //             x_h[i] += 0.0000001;
+    //             let frames_h = vars.robot.get_frames_immutable(x_h.as_slice());
+    //             for &j in &finite_diff_list {
+    //                 let f_h = self.objectives[j].call(&x_h, vars, &frames_h);
+    //                 grad[i] += ((-f_0s[j] + f_h) / 0.0000001);
+    //             }
+    //         }
+    //     }
 
-        (obj, grad)
-    }
+    //     (obj, grad)
+    // }
 
-    fn __gradient_lite(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        let mut grad: Vec<f64> = vec![0.; x.len()];
-        let mut obj = 0.0;
+    // fn __gradient_lite(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    //     let mut grad: Vec<f64> = vec![0.; x.len()];
+    //     let mut obj = 0.0;
 
-        let mut finite_diff_list: Vec<usize> = Vec::new();
-        let mut f_0s: Vec<f64> = Vec::new();
-        let poses_0 = vars.robot.get_ee_pos_and_quat_immutable(x);
-        for i in 0..self.objectives.len() {
-            if self.objectives[i].gradient_type() == 1 {
-                let (local_obj, local_grad) = self.objectives[i].gradient_lite(x, vars, &poses_0);
-                f_0s.push(local_obj);
-                obj += local_obj;
-                for j in 0..local_grad.len() {
-                    grad[j] += local_grad[j];
-                }
-            } else if self.objectives[i].gradient_type() == 0 {
-                finite_diff_list.push(i);
-                let local_obj = self.objectives[i].call_lite(x, vars, &poses_0);
-                obj += local_obj;
-                f_0s.push(local_obj);
-            }
-        }
+    //     let mut finite_diff_list: Vec<usize> = Vec::new();
+    //     let mut f_0s: Vec<f64> = Vec::new();
+    //     let poses_0 = vars.robot.get_ee_pos_and_quat_immutable(x);
+    //     for i in 0..self.objectives.len() {
+    //         if self.objectives[i].gradient_type() == 1 {
+    //             let (local_obj, local_grad) = self.objectives[i].gradient_lite(x, vars, &poses_0);
+    //             f_0s.push(local_obj);
+    //             obj += local_obj;
+    //             for j in 0..local_grad.len() {
+    //                 grad[j] += local_grad[j];
+    //             }
+    //         } else if self.objectives[i].gradient_type() == 0 {
+    //             finite_diff_list.push(i);
+    //             let local_obj = self.objectives[i].call_lite(x, vars, &poses_0);
+    //             obj += local_obj;
+    //             f_0s.push(local_obj);
+    //         }
+    //     }
 
-        if !finite_diff_list.is_empty() {
-            for i in 0..x.len() {
-                let mut x_h = x.to_vec();
-                x_h[i] += 0.0000001;
-                let poses_h = vars.robot.get_ee_pos_and_quat_immutable(x_h.as_slice());
-                for j in &finite_diff_list {
-                    let f_h = self.objectives[*j].call_lite(x, vars, &poses_h);
-                    grad[i] += ((-f_0s[*j] + f_h) / 0.0000001);
-                }
-            }
-        }
+    //     if !finite_diff_list.is_empty() {
+    //         for i in 0..x.len() {
+    //             let mut x_h = x.to_vec();
+    //             x_h[i] += 0.0000001;
+    //             let poses_h = vars.robot.get_ee_pos_and_quat_immutable(x_h.as_slice());
+    //             for j in &finite_diff_list {
+    //                 let f_h = self.objectives[*j].call_lite(x, vars, &poses_h);
+    //                 grad[i] += ((-f_0s[*j] + f_h) / 0.0000001);
+    //             }
+    //         }
+    //     }
 
-        (obj, grad)
-    }
+    //     (obj, grad)
+    // }
 
-    fn __gradient_finite_diff(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
-        let mut grad: Vec<f64> = vec![0.; x.len()];
-        let f_0 = self.call(x, vars);
+    // fn __gradient_finite_diff(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    //     let mut grad: Vec<f64> = vec![0.; x.len()];
+    //     let f_0 = self.call(x, vars);
 
-        for i in 0..x.len() {
-            let mut x_h = x.to_vec();
-            x_h[i] += 0.000001;
-            let f_h = self.call(x_h.as_slice(), vars);
-            grad[i] = (-f_0 + f_h) / 0.000001;
-        }
+    //     for i in 0..x.len() {
+    //         let mut x_h = x.to_vec();
+    //         x_h[i] += 0.000001;
+    //         let f_h = self.call(x_h.as_slice(), vars);
+    //         grad[i] = (-f_0 + f_h) / 0.000001;
+    //     }
 
-        (f_0, grad)
-    }
+    //     (f_0, grad)
+    // }
 
     /// Calculating only partial frames to improve efficiency
-    fn optimized_grad(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
+    pub fn optimized_grad(&self, x: &[f64], vars: &RelaxedIKVars) -> (f64, Vec<f64>) {
         // TODO implement multi arm
         let mut grad: Vec<f64> = vec![0.; x.len()];
         let (frame_pos, frame_rot) = vars.robot.arms[0].get_frames_immutable(x);

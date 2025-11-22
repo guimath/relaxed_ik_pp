@@ -54,6 +54,7 @@ impl RelaxedIK {
             .iter()
             .map(|obj| obj.get_weight())
             .sum::<f64>();
+        println!("{min_possible_cost}");
         let mut a = Self {
             config,
             vars,

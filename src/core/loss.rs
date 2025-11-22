@@ -92,6 +92,13 @@ impl LossFunction for FuncType {
             FuncType::Groove(params) => params.compute(x),
         }
     }
+    fn recap(&self) -> String {
+        match self {
+            FuncType::Swamp(params) => params.recap(),
+            FuncType::SwampGroove(params) => params.recap(),
+            FuncType::Groove(params) => params.recap(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
@@ -101,6 +108,7 @@ pub enum SwampType {
 
 pub trait LossFunction {
     fn compute(&self, x: f64) -> f64;
+    fn recap(&self) -> String;
 }
 
 impl LossFunction for SwampParams {
@@ -108,6 +116,9 @@ impl LossFunction for SwampParams {
         let x = (2.0 * x - self.l_bound - self.u_bound) / (self.u_bound - self.l_bound);
         let b = (-1.0 / 0.05_f64.ln()).powf(1.0 / self.p1 as f64);
         (self.f1 + self.f2 * x.powi(2)) * (1.0 - (-(x / b).powi(self.p1)).exp()) - 1.0
+    }
+    fn recap(&self) -> String {
+        format!("{:?}", self)
     }
 }
 
@@ -119,11 +130,17 @@ impl LossFunction for SwampGrooveParams {
             + self.f2 * (x - self.g).powi(2)
             + self.f3 * (1.0 - (-(x / b).powi(self.p1)).exp())
     }
+    fn recap(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 impl LossFunction for GrooveParams {
     fn compute(&self, x: f64) -> f64 {
         -((-(x - self.t).powi(self.d)) / (2.0 * self.c.powi(2))).exp()
             + self.f * (x - self.t).powi(self.g)
+    }
+    fn recap(&self) -> String {
+        format!("{:?}", self)
     }
 }

@@ -15,7 +15,7 @@ struct Cli {
     settings: PathBuf,
 }
 
-const NUM_PER_JOINT: i32 = 8;
+const NUM_PER_JOINT: i32 = 12;
 const STEP: f64 = 1.0 / NUM_PER_JOINT as f64;
 #[inline]
 fn to_joint_val(x: i32) -> f64 {
@@ -39,11 +39,9 @@ fn main() {
 
     let mut x = [0.0f64; 6];
     rik.om.objectives = vec![];
-    rik.om.weight_priors = vec![];
     macro_rules! scan_space_rec {
         () => ({
-            // rik.om.optimized_grad(&x, &rik.vars);
-            rik.om.gradient(&x, &rik.vars);
+            rik.om.optimized_grad(&x, &rik.vars);
         });
         ($current:expr $(, $next:expr)*) => ({
             for x0 in 0..NUM_PER_JOINT {
@@ -53,6 +51,7 @@ fn main() {
         });
     }
     let mut base_line = time::Duration::from_micros(0);
+    // Doing a pass with empty objectives to get baseline
     let loops_to_average = 10;
     for i in 0..loops_to_average {
         let t1 = time::Instant::now();
@@ -64,7 +63,6 @@ fn main() {
     println!("Global ; No baseline");
     println!("{:} ; 0", base_line.as_millis());
 
-    rik.om.weight_priors = vec![1.0];
     let mut i = objectives.len() - 8;
     for obj in objectives {
         rik.om.objectives = vec![obj];
@@ -80,7 +78,6 @@ fn main() {
     }
 
     rik.om.objectives = rik2.om.objectives;
-    rik.om.weight_priors = rik2.om.weight_priors;
     let t1 = time::Instant::now();
     scan_space_rec!(0, 1, 2, 3, 4, 5);
     let elapsed = time::Instant::now() - t1;
@@ -110,3 +107,26 @@ fn main() {
 // SelfCollision (0 – 2)   | 7713   | 2734         | 5576   | 2623         |
 // SelfCollision (0 – 3)   | 7945   | 2966         | 5740   | 2787         |
 // All                     | 54179  | 49199        | 51665  | 48712        |
+
+// With dynamic Losslookup
+// Global ; No baseline
+// 3782 ; 0
+// 4668 ; 886
+// 4543 ; 761
+// 4482 ; 699
+// 4305 ; 523
+// 5727 ; 1945
+// 4199 ; 417
+// 4196 ; 414
+// 4326 ; 543
+// 4469 ; 687
+// 4274 ; 492
+// 4429 ; 647
+// 4253 ; 471
+// 4063 ; 281
+// 4169 ; 387
+// 4470 ; 688
+// 25628 ; 21846
+// 6049 ; 2267
+// 6089 ; 2307
+// 52944 ; 49162
