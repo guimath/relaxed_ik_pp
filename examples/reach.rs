@@ -117,6 +117,11 @@ fn get_ik(
     rik.vars.xopt.clone()
 }
 
+fn update_target_pos(target_robot: &mut urdf_rs::Robot, new_target: [f64; 3]) {
+    target_robot.links[0].collision[0].origin.xyz = Vec3(new_target);
+    target_robot.links[0].visual[0].origin.xyz = Vec3(new_target);
+}
+
 fn main() {
     env_logger::init();
     let args = Cli::parse();
@@ -169,8 +174,9 @@ fn main() {
     target_robot.name = String::from("Target");
     obstacle_description.name = String::from("Scene_obstacles");
     obstacle_description.links.remove(0);
-    target_robot.links[0].visual[0].origin.xyz = Vec3(target);
-    target_robot.links[0].collision[0].origin.xyz = Vec3(target);
+    update_target_pos(&mut target_robot, target);
+    // target_robot.links[0].visual[0].origin.xyz = Vec3(target);
+    // target_robot.links[0].collision[0].origin.xyz = Vec3(target);
 
     viewer.add_robot(&mut window, &obstacle_description, &Default::default());
     viewer.add_robot(&mut window, &target_robot, &Default::default());
@@ -257,8 +263,7 @@ fn main() {
                     }
                     // moving obstacle visual
                     viewer.remove_robot(&mut window, &target_robot);
-                    target_robot.links[0].visual[0].origin.xyz = Vec3(next_target);
-                    target_robot.links[0].collision[0].origin.xyz = Vec3(next_target);
+                    update_target_pos(&mut target_robot, next_target);
                     viewer.add_robot(&mut window, &target_robot, &Default::default());
                     // moving obstacle compute
                     shapes[0].0.translation =

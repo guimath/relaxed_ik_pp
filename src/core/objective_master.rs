@@ -99,11 +99,6 @@ impl ObjectiveMaster {
 
         for arm_idx in 0..chain_lengths.len() {
             // axis Z=0; Y=1; X=2;
-            add_objective(
-                &mut objectives,
-                config.z_pos,
-                MatchEEPosiDoF { arm_idx, axis: 0 },
-            );
             add_obj!(config.z_pos, MatchEEPosiDoF { arm_idx, axis: 0 });
             add_obj!(config.y_pos, MatchEEPosiDoF { arm_idx, axis: 1 });
             add_obj!(config.x_pos, MatchEEPosiDoF { arm_idx, axis: 2 });
