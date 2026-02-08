@@ -32,7 +32,7 @@ approach_dist = 0.05
 
 [objectives.cardinal_directions]
 	func = { Groove = { t = 0.0, d = 2, c = 0.1, f = 10.0, g = 2 } }
-	weight = 50
+	weight = 0
 
 [objectives.joint_limits]
 	func = { Swamp = { l_bound = -0.1, u_bound = 0.1, f1 = 10.0, f2 = 10.0, p1 = 20 } }
