@@ -197,17 +197,31 @@ pub trait ObjectiveTrait {
 }
 
 #[derive(Debug)]
+pub enum EulerAxis {
+    Roll,
+    Pitch,
+    Yaw,
+}
+#[derive(Debug)]
 pub struct CardinalDirectionObjective {
     pub arm_idx: usize,
+    pub axis: EulerAxis,
+    pub target: f64,
 }
 
 impl ObjectiveTrait for CardinalDirectionObjective {
     #[inline]
     fn call(&self, _x: &[f64], _v: &vars::RelaxedIKVars, frames: &[Pose]) -> f64 {
+        // returning how far away from one of four cardinal directions the end effector is
         let last_elem = frames[self.arm_idx].0.len() - 1;
-        let ee_pos = frames[self.arm_idx].0[last_elem].x;
-        let prev_pos = frames[self.arm_idx].0[last_elem - 1].x;
-        ee_pos - prev_pos
+        let ee_pos = frames[self.arm_idx].1[last_elem];
+        let (roll, pitch, yaw) = ee_pos.euler_angles();
+        let wanted_euler = match self.axis {
+            EulerAxis::Roll => roll,
+            EulerAxis::Pitch => pitch,
+            EulerAxis::Yaw => yaw,
+        };
+        wanted_euler - self.target
     }
 }
 

@@ -108,7 +108,27 @@ impl ObjectiveMaster {
             add_obj!(config.vertical_arm, VerticalArm2 { arm_idx });
             add_obj!(
                 config.cardinal_directions,
-                CardinalDirectionObjective { arm_idx }
+                CardinalDirectionObjective {
+                    arm_idx,
+                    axis: EulerAxis::Roll,
+                    target: -1.57,
+                }
+            );
+            add_obj!(
+                config.cardinal_directions,
+                CardinalDirectionObjective {
+                    arm_idx,
+                    axis: EulerAxis::Pitch,
+                    target: 0.0
+                }
+            );
+            add_obj!(
+                config.cardinal_directions,
+                CardinalDirectionObjective {
+                    arm_idx,
+                    axis: EulerAxis::Yaw,
+                    target: -1.57,
+                }
             );
         }
         let SwampType::Swamp(mut params) = config.joint_limits.func;
